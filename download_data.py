@@ -5,7 +5,6 @@ It also generates metadata and summary reports of the recordings.
 '''
 
 import os
-import json
 import requests
 import pandas as pd
 import re
