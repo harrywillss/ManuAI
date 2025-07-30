@@ -20,8 +20,6 @@ import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 
-num_workers = 4
-
 # Helper functions for parallel processing - must be at module level
 def load_single_segment(args):
     """Load a single audio segment with error handling."""
@@ -92,6 +90,7 @@ class AudioProcessor:
         self.dev_mode = dev_mode
         self.dev_limit = dev_limit
         self.use_parallel = use_parallel
+        self.num_workers = 4 if use_parallel else 1
         
         # State variables for user preferences
         self._asked_save_spectrograms = False
@@ -509,14 +508,13 @@ class AudioProcessor:
         
         if use_parallel and len(all_files) > 50:
             # Parallel processing
-            # Use fewer workers in dev mode
-            print(f"Using {num_workers} parallel workers...")
+            print(f"Using {self.num_workers} parallel workers...")
             
             # Prepare tasks for parallel processing
             file_tasks = [(file_path, duration, label) for file_path, file, label in all_files]
             
             # Process in parallel with progress bar
-            with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            with ProcessPoolExecutor(max_workers=self.num_workers) as executor:
                 # Submit all tasks
                 future_to_path = {executor.submit(load_single_segment, task): task[0] for task in file_tasks}
                 
@@ -666,9 +664,9 @@ class AudioProcessor:
             # Prepare tasks and determine worker count
             tasks = [(audio, target_width) for audio in audio_files]
             #num_workers = min(mp.cpu_count() // 2, 4) if self.dev_mode else min(mp.cpu_count(), 8)
-            print(f"Using {num_workers} parallel workers...")
-            
-            with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            print(f"Using {self.num_workers} parallel workers...")
+
+            with ProcessPoolExecutor(max_workers=self.num_workers) as executor:
                 future_to_index = {executor.submit(extract_single_feature, task): i for i, task in enumerate(tasks)}
                 results = [None] * len(tasks)
                 
