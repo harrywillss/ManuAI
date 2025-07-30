@@ -291,8 +291,10 @@ class BirdRecordingDownloader:
         if input("Do you want to download the recordings? (y/n): ").strip().lower() != 'y':
             print("Download skipped.")
             return
+        use_parallel = input("Use parallel downloads? (y/n): ").strip().lower() == 'y'
+        max_workers = 4 if use_parallel else 1
         print("📥 Downloading filtered recordings...")
-        self.download_recordings(filtered_recordings)
+        self.download_recordings(filtered_recordings, max_workers=max_workers)
 
 bird_types = {
     "Tūī": "Prosthemadera novaeseelandiae",
