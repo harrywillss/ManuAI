@@ -10,6 +10,7 @@ import pandas as pd
 import re
 import tqdm
 from dotenv import load_dotenv
+import concurrent.futures
 
 # Load environment variables from .env file
 load_dotenv()
@@ -81,18 +82,15 @@ class BirdRecordingDownloader:
         text = str(text).lower().replace(" ", "_")
         return re.sub(r'[^a-z0-9_]', '', text)
 
-    def download_recordings(self, recordings):
+    def download_recordings(self, recordings, max_workers=4):
         '''
-        Download recordings to the output directory.
+        Download recordings to the output directory using limited parallel threads.
         '''
         downloaded = []
-        i = 0
-        for rec in recordings:
-            i += 1
-            print(f"Processing recording {i}/{len(recordings)}: {rec.get('id', 'unknown')}")
-            if "file" not in rec or "id" not in rec:
-                continue
 
+        def download_one(rec):
+            if "file" not in rec or "id" not in rec:
+                return None
             file_url = rec["file"]
             file_id = rec["id"]
             gen = self._sanitize(rec.get("gen", "unknown"))
@@ -102,7 +100,7 @@ class BirdRecordingDownloader:
             length = rec.get("length", "0:00")
             if length == "0:00":
                 print(f"⚠️ Recording {file_id} has no length data, skipping download.")
-                continue
+                return None
 
             invalid_names = ["south_island_", "north_island_", "new_zealand_"]
             for name in invalid_names:
@@ -115,18 +113,26 @@ class BirdRecordingDownloader:
 
             if os.path.exists(filepath):
                 print(f"⏩ File already exists: {filename}, skipping download.")
-                downloaded.append(filepath)
-                continue
+                return filepath
 
             print(f"⬇️ Downloading {filename}...")
-            resp = requests.get(file_url)
-            if resp.status_code == 200:
-                with open(filepath, "wb") as f:
-                    f.write(resp.content)
-                print(f"✅ Saved: {filename}")
-                downloaded.append(filepath)
-            else:
-                print(f"❌ Failed to download {file_id}: {resp.status_code}")
+            try:
+                resp = requests.get(file_url, timeout=30)
+                if resp.status_code == 200:
+                    with open(filepath, "wb") as f:
+                        f.write(resp.content)
+                    print(f"✅ Saved: {filename}")
+                    return filepath
+                else:
+                    print(f"❌ Failed to download {file_id}: {resp.status_code}")
+            except Exception as e:
+                print(f"❌ Error downloading {file_id}: {e}")
+            return None
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            results = list(tqdm.tqdm(executor.map(download_one, recordings), total=len(recordings)))
+            downloaded = [r for r in results if r is not None]
+
         print(f"📥 Downloaded {len(downloaded)} recordings to {self.output_dir}")
         return downloaded
 
@@ -248,25 +254,25 @@ class BirdRecordingDownloader:
     def run(self):
         # Fetch 'song' recordings
         self.recording_type = "song"
-        self.query_string = self.build_query()
+        self.query_string = self._build_query()
         data_song = self.fetch_data()
         recordings_song = data_song.get("recordings", [])
 
         # Fetch 'call' recordings
         self.recording_type = "call"
-        self.query_string = self.build_query()
+        self.query_string = self._build_query()
         data_call = self.fetch_data()
         recordings_call = data_call.get("recordings", [])
 
         # Fetch 'territorial call' recordings
         self.recording_type = "territorial call"
-        self.query_string = self.build_query()
+        self.query_string = self._build_query()
         data_territorial_call = self.fetch_data()
         recordings_territorial_call = data_territorial_call.get("recordings", [])
 
         # Fetch 'alarm call' recordings
         self.recording_type = "alarm call"
-        self.query_string = self.build_query()
+        self.query_string = self._build_query()
         data_alarm_call = self.fetch_data()
         recordings_alarm_call = data_alarm_call.get("recordings", [])
 
@@ -301,9 +307,18 @@ bird_types = {
     "Silvereye/Tauhou": "Zosterops lateralis"
 }
 
+# Use instead of run function in main.py
 def main():
+    '''
+    Main function to run the Bird Recording Downloader.
+    Downloads bird recordings based on specified criteria and saves them to the output directory.
+    '''
+    
     tqdm.tqdm.pandas(desc="Downloading recordings")
     print("🐦 Starting Bird Recording Downloader...")
     downloader = BirdRecordingDownloader(bird_types=bird_types)
     downloader.run()
     print("✅ Bird Recording Downloader finished.")
+
+if __name__ == "__main__":
+    main()

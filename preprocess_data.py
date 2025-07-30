@@ -20,6 +20,8 @@ import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 
+num_workers = 4
+
 # Helper functions for parallel processing - must be at module level
 def load_single_segment(args):
     """Load a single audio segment with error handling."""
@@ -508,7 +510,6 @@ class AudioProcessor:
         if use_parallel and len(all_files) > 50:
             # Parallel processing
             # Use fewer workers in dev mode
-            num_workers = min(mp.cpu_count() // 2, 4) if self.dev_mode else mp.cpu_count()
             print(f"Using {num_workers} parallel workers...")
             
             # Prepare tasks for parallel processing
@@ -664,7 +665,7 @@ class AudioProcessor:
             
             # Prepare tasks and determine worker count
             tasks = [(audio, target_width) for audio in audio_files]
-            num_workers = min(mp.cpu_count() // 2, 4) if self.dev_mode else min(mp.cpu_count(), 8)
+            #num_workers = min(mp.cpu_count() // 2, 4) if self.dev_mode else min(mp.cpu_count(), 8)
             print(f"Using {num_workers} parallel workers...")
             
             with ProcessPoolExecutor(max_workers=num_workers) as executor:
