@@ -1,25 +1,9 @@
-"""
-Bird Sound Classification with Vision Transformer (ViT)
-
-This module processes bird audio recordings, converts them to mel-spectrograms,
-and prepares them for classification using a Vision Transformer architecture.
-
-Key Features:
-- Memory-efficient batch processing to handle large datasets
-- Parallel processing support for faster feature extraction
-- Quality assessment and filtering of audio segments
-- Mel-spectrogram visualization and saving
-- ViT-compatible patch creation with positional encodings
-
-Optimizations:
-- Batched patch creation prevents memory overflow
-- Efficient parallel processing with proper resource management
-- Simplified user interface with clear progress indicators
-- Clean separation of concerns and modular design
-
-Usage:
-    python process_audio.py
-"""
+'''
+Audio processing module for bird sound classification.
+This module handles loading audio files, segmenting them, extracting features,
+and preparing data for training a Vision Transformer (ViT) model.
+It includes advanced quality filtering based on SNR, silence, and spectral characteristics.
+'''
 
 import os
 import shutil
