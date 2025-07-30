@@ -1,3 +1,9 @@
+'''
+This script downloads bird recordings from the xeno-canto API based on specified criteria.
+It supports filtering by bird types, recording types, and quality, and saves the recordings to a specified directory.
+It also generates metadata and summary reports of the recordings.
+'''
+
 import os
 import json
 import requests
@@ -8,9 +14,6 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
-
-# Using advanced search to find bird songs in New Zealand
-# see https://xeno-canto.org/help/search
 
 # Bird types: ["Fantail", "Kākā", "Bellbird", "Tūī", "Kea", "Morepork", "Kākāpō", "House Sparrow"], # List of bird types to search for
 # Recording types: ["song", "call"]
@@ -33,12 +36,25 @@ class BirdRecordingDownloader:
             raise ValueError("API key not found. Please set the XC_API_KEY environment variable.")
 
         os.makedirs(self.output_dir, exist_ok=True)
-        self.query_string = self.build_query()
+        self.query_string = self._build_query()
 
-    def build_query(self):
+    def _build_query(self):
+        # Build the query string for the xeno-canto API
         return f'cnt:"{self.country}" grp:"{self.group}" type:"{self.recording_type}" q:"{self.quality}"'
 
+    def _parse_length(self, length_str):
+        # Converts "m:ss" to seconds
+        try:
+            mins, secs = map(int, length_str.split(":"))
+            return mins * 60 + secs
+        except Exception:
+            return 0
+
     def fetch_data(self):
+        '''
+        Fetch data from the xeno-canto API based on the query string.
+        Handles pagination and returns all recordings.
+        '''
         print("🔍 Fetching data with query:", self.query_string)
         all_recordings = []
         page = 1
@@ -59,11 +75,17 @@ class BirdRecordingDownloader:
         return {"recordings": all_recordings}
 
     def _sanitize(self, text):
-        # Lowercase, replace spaces with underscores, remove non-alphanum/underscore
+        '''
+        Sanitize text for use in filenames.
+        Converts to lowercase, replaces spaces with underscores, and removes non-alphanumeric characters.
+        '''
         text = str(text).lower().replace(" ", "_")
         return re.sub(r'[^a-z0-9_]', '', text)
 
     def download_recordings(self, recordings):
+        '''
+        Download recordings to the output directory.
+        '''
         downloaded = []
         i = 0
         for rec in recordings:
@@ -109,7 +131,10 @@ class BirdRecordingDownloader:
         print(f"📥 Downloaded {len(downloaded)} recordings to {self.output_dir}")
         return downloaded
 
-    def save_metadata(self, recordings, metadata_filename="recordings_metadata.json", csv_filename="recordings_data.csv"):
+    def save_metadata(self, recordings, csv_filename="recordings_data.csv"):
+        '''
+        Save metadata of recordings to a CSV file.
+        '''
         metadata = {
             "query": self.query_string,
             "total_recordings": len(recordings),
@@ -127,20 +152,19 @@ class BirdRecordingDownloader:
             ]
         }
 
-        with open(metadata_filename, "w") as f:
-            json.dump(metadata, f, indent=4)
-        print(f"📁 Metadata saved to {metadata_filename}")
-
         df = pd.DataFrame(metadata["recordings"])
         # Combine North Island and South Island species
         df['english_name'] = df['english_name'].str.replace("North Island ", "", regex=False).str.replace("South Island ", "", regex=False)
 
         # Remove "New Zealand" from species names
         df['english_name'] = df['english_name'].str.replace("New Zealand ", "", regex=False)
-        df.to_csv(csv_filename, index=False)
+        df.to_csv("logs/" + csv_filename, index=False)
         print(f"📊 CSV data saved to {csv_filename}")
 
     def report_summary(self, recordings):
+        '''
+        Generate a summary report of the recordings.
+        '''
         if not recordings:
             print("⚠️ No recordings to summarize.")
             return
@@ -172,8 +196,8 @@ class BirdRecordingDownloader:
         print(f"Total recordings: {len(df)}")
         print(f"Unique species: {df['species'].nunique()}")
 
-        print("\nTop 20 species by number of recordings:")
-        print(df['english_name'].value_counts().head(20))
+        print("\nTop 10 species by number of recordings:")
+        print(df['english_name'].value_counts().head(10))
 
         avg_length = df['length'].mean()
         print(f"\nAverage recording length: {avg_length:.2f} seconds")
@@ -183,19 +207,12 @@ class BirdRecordingDownloader:
         if identity_unknown_count > 0:
             print(f"\nNumber of 'Identity unknown' recordings: {identity_unknown_count}")
 
-        print("\nRecordings by sex:")
-        print(df['sex'].value_counts())
-
-    def _parse_length(self, length_str):
-        # Converts "m:ss" to seconds
-        try:
-            mins, secs = map(int, length_str.split(":"))
-            return mins * 60 + secs
-        except Exception:
-            return 0
         
     def filter_recordings(self, recordings):
-        # Filter recordings based on bird types and quality
+        '''
+        Filter recordings based on the specified bird types.
+        Only keep recordings that match the bird types defined in the class.
+        '''
         filtered = []
         for rec in recordings:
             if "gen" not in rec or "sp" not in rec or "en" not in rec:
@@ -260,30 +277,17 @@ class BirdRecordingDownloader:
         
         # Report number of recordings fetched and species found
         print(f"Total recordings fetched: {len(all_recordings)}")
-        unique_species = {rec.get("gen", "Unknown") + " " + rec.get("sp", "Unknown") for rec in all_recordings}
-        print(f"Unique species found: {len(unique_species)}")
 
         filtered_recordings = self.filter_recordings(all_recordings)
 
         self.save_metadata(filtered_recordings)
         self.report_summary(filtered_recordings)
 
-        # if input("Do you want to download the recordings? (y/n): ").strip().lower() != 'y':
-        #     print("Download skipped.")
-        #     return
-        # Optionally limit or download
+        if input("Do you want to download the recordings? (y/n): ").strip().lower() != 'y':
+            print("Download skipped.")
+            return
+        print("📥 Downloading filtered recordings...")
         self.download_recordings(filtered_recordings)
-
-# - Tūī (Prosthemadera novaeseelandiae): 165
-# - Bellbird/Korimako (Anthornis melanura): 73
-# - Fantail/Pīwakawaka (Rhipidura fuliginosa): 43
-# - Robin/Toutouwai (Petroica longipes): 41
-# - Kākā (Nestor meridionalis): 41
-# - Tomtit/Miromiro (Petroica macrocephala): 39
-# - Whitehead/Pōpokotea (Mohoua albicilla): 44
-# - Morepork/Ruru (Ninox novaeseelandiae): 31
-# - Saddleback/Tīeke (Philesturnus rufusater): 39
-# - Silvereye/Tauhou (Zosterops lateralis): 30
 
 bird_types = {
     "Tūī": "Prosthemadera novaeseelandiae",
@@ -303,8 +307,4 @@ def main():
     print("🐦 Starting Bird Recording Downloader...")
     downloader = BirdRecordingDownloader(bird_types=bird_types)
     downloader.run()
-
-# TODO:
-# - Implement a progress bar for downloads.
-# - Remove 'Identity unknown' recordings
-# - Combine separate "North Island" and "South Island" bird types into a single type.
+    print("✅ Bird Recording Downloader finished.")
