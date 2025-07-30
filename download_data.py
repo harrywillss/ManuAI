@@ -248,25 +248,25 @@ class BirdRecordingDownloader:
     def run(self):
         # Fetch 'song' recordings
         self.recording_type = "song"
-        self.query_string = self._build_query()
+        self.query_string = self.build_query()
         data_song = self.fetch_data()
         recordings_song = data_song.get("recordings", [])
 
         # Fetch 'call' recordings
         self.recording_type = "call"
-        self.query_string = self._build_query()
+        self.query_string = self.build_query()
         data_call = self.fetch_data()
         recordings_call = data_call.get("recordings", [])
 
         # Fetch 'territorial call' recordings
         self.recording_type = "territorial call"
-        self.query_string = self._build_query()
+        self.query_string = self.build_query()
         data_territorial_call = self.fetch_data()
         recordings_territorial_call = data_territorial_call.get("recordings", [])
 
         # Fetch 'alarm call' recordings
         self.recording_type = "alarm call"
-        self.query_string = self._build_query()
+        self.query_string = self.build_query()
         data_alarm_call = self.fetch_data()
         recordings_alarm_call = data_alarm_call.get("recordings", [])
 
@@ -307,6 +307,3 @@ def main():
     downloader = BirdRecordingDownloader(bird_types=bird_types)
     downloader.run()
     print("✅ Bird Recording Downloader finished.")
-
-if __name__ == "__main__":
-    main()
