@@ -14,6 +14,10 @@ import librosa
 import soundfile as sf
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from PIL import Image
+import io
+from scipy.signal import medfilt
+from scipy import ndimage
 
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
@@ -103,8 +107,10 @@ class AudioProcessor:
         # State variables for user preferences
         self._asked_save_spectrograms = False
         self._asked_quality_filter = False
+        self._asked_noise_reduction = False
         self.save_spectrograms_enabled = False
         self.use_quality_filter = False
+        self.use_noise_reduction = False
 
     def _ask_user_preference(self, question, default=None):
         """Helper to ask user yes/no questions."""
@@ -133,6 +139,96 @@ class AudioProcessor:
             print(f"📊 Spectrogram saving {status}")
             
         return self.save_spectrograms_enabled
+
+    def ask_noise_reduction_preference(self):
+        """Ask user if they want to apply noise reduction during processing."""
+        if not self._asked_noise_reduction:
+            self.use_noise_reduction = self._ask_user_preference(
+                "Apply noise reduction to audio? (removes background noise and artifacts)"
+            )
+            self._asked_noise_reduction = True
+            
+            status = "enabled" if self.use_noise_reduction else "disabled"
+            print(f"🔧 Noise reduction {status}")
+            
+        return self.use_noise_reduction
+
+    def reduce_noise_spectral_gating(self, audio, sr, noise_gate_threshold=0.02, 
+                                   noise_reduce_factor=0.5):
+        """
+        Apply noise reduction using spectral gating technique.
+        This method estimates noise from quiet sections and reduces it throughout.
+        """
+        try:
+            # Convert to STFT for frequency domain processing
+            stft = librosa.stft(audio, hop_length=256, win_length=1024)
+            magnitude = np.abs(stft)
+            phase = np.angle(stft)
+            
+            # Estimate noise floor from quieter sections
+            # Use bottom 10% of magnitudes as noise estimate
+            sorted_mags = np.sort(magnitude.flatten())
+            noise_floor = np.mean(sorted_mags[:int(len(sorted_mags) * 0.1)])
+            
+            # Apply spectral gating
+            noise_mask = magnitude < (noise_gate_threshold * np.max(magnitude))
+            
+            # Reduce noise in identified sections
+            reduced_magnitude = magnitude.copy()
+            reduced_magnitude[noise_mask] *= noise_reduce_factor
+            
+            # Reconstruct audio
+            reduced_stft = reduced_magnitude * np.exp(1j * phase)
+            cleaned_audio = librosa.istft(reduced_stft, hop_length=256, win_length=1024)
+            
+            return cleaned_audio
+            
+        except Exception as e:
+            print(f"Warning: Noise reduction failed, using original audio: {e}")
+            return audio
+
+    def reduce_noise_median_filter(self, audio, kernel_size=3):
+        """
+        Apply median filtering to reduce impulsive noise and clicks.
+        Good for removing sudden spikes and clicks in audio.
+        """
+        try:
+            # Apply median filter to reduce impulsive noise
+            filtered_audio = medfilt(audio, kernel_size=kernel_size)
+            return filtered_audio
+        except Exception as e:
+            print(f"Warning: Median filtering failed, using original audio: {e}")
+            return audio
+
+    def apply_noise_reduction(self, audio, sr):
+        """
+        Apply comprehensive noise reduction pipeline.
+        Combines multiple techniques for better results.
+        """
+        if not self.use_noise_reduction:
+            return audio
+            
+        try:
+            # Step 1: Remove DC offset
+            audio = audio - np.mean(audio)
+            
+            # Step 2: Apply median filter for click/pop removal
+            audio = self.reduce_noise_median_filter(audio, kernel_size=3)
+            
+            # Step 3: Apply spectral gating for background noise
+            audio = self.reduce_noise_spectral_gating(audio, sr, 
+                                                    noise_gate_threshold=0.02,
+                                                    noise_reduce_factor=0.6)
+            
+            # Step 4: Normalize to prevent clipping
+            if np.max(np.abs(audio)) > 0:
+                audio = audio / np.max(np.abs(audio)) * 0.95
+            
+            return audio
+            
+        except Exception as e:
+            print(f"Warning: Noise reduction pipeline failed, using original audio: {e}")
+            return audio
 
     def assess_audio_quality(self, audio, sr, min_snr=10.0, max_silence_ratio=0.7, min_spectral_centroid=500, max_spectral_centroid=8000):
         """
@@ -804,15 +900,32 @@ class AudioProcessor:
                         filename = f"{label}_spectrogram_{species_counts[label]:04d}.png"
                         filepath = os.path.join(species_folder, filename)
                         
-                        # Create and save spectrogram
+                        # Create and save spectrogram with ViT-compatible settings
                         plt.figure(figsize=(6, 6))
                         plt.imshow(mel, aspect='auto', origin='lower', cmap='viridis')
-                        plt.title(f"{label} #{species_counts[label]}", fontsize=10)
                         plt.axis('off')
                         plt.tight_layout()
-                        plt.savefig(filepath, dpi=37.33, bbox_inches='tight', 
-                                  pad_inches=0.1, facecolor='white')
+                        
+                        # Save to memory buffer first
+                        buf = io.BytesIO()
+                        plt.savefig(buf, dpi=75, bbox_inches='tight', 
+                                  pad_inches=0, facecolor='white', format='png')
                         plt.close()
+                        
+                        # Load from buffer and process for ViT compatibility
+                        buf.seek(0)
+                        img = Image.open(buf)
+                        
+                        # Convert RGBA to RGB (remove alpha channel)
+                        if img.mode == 'RGBA':
+                            img = img.convert('RGB')
+                        
+                        # Resize to 224x224 for ViT compatibility
+                        img = img.resize((224, 224), Image.Resampling.LANCZOS)
+                        
+                        # Save final image
+                        img.save(filepath, format='PNG')
+                        buf.close()
                         
                         pbar.set_postfix_str(f"Species: {label}")
                         pbar.update(1)
@@ -941,10 +1054,14 @@ class AudioProcessor:
         """
         For each .wav file in download_dir, resample to 44100 Hz if needed, and copy to resampled_dir
         in subfolders for both English and scientific names.
+        Now includes optional noise reduction preprocessing.
         """
         if input("Do you want to resample audio files? (y/n): ").strip().lower() != 'y':
             print("Skipping audio resampling.")
             return
+        
+        # Ask about noise reduction
+        self.ask_noise_reduction_preference()
             
         if not os.path.exists(resampled_dir):
             os.makedirs(resampled_dir)
@@ -1045,6 +1162,10 @@ class AudioProcessor:
                         skipped_files += 1
                         pbar.update(1)
                         continue
+                    
+                    # Apply noise reduction if enabled
+                    if self.use_noise_reduction:
+                        y = self.apply_noise_reduction(y, sr)
                         
                     # Save to nested folder
                     nested_folder = os.path.join(resampled_dir, english_name, scientific_name)
@@ -1151,6 +1272,8 @@ def main():
         print(f"   • Limited to {processor.dev_limit} files per species during segmentation")
         print(f"   • Limited to {processor.dev_limit} spectrograms per species when saving")
         print(f"   • Used smaller batch sizes for faster processing")
+        if hasattr(processor, 'use_noise_reduction') and processor.use_noise_reduction:
+            print(f"   • Noise reduction was applied during preprocessing")
         print(f"   This ensures faster testing with representative data from each species.")
 
 if __name__ == "__main__":
