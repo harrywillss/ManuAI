@@ -1,4 +1,6 @@
 downloads/
 reports/
 training_data/
+segments/
+spectrograms/
 pc_speed_test.py

@@ -90,7 +90,15 @@ class AudioProcessor:
         self.dev_mode = dev_mode
         self.dev_limit = dev_limit
         self.use_parallel = use_parallel
-        self.num_workers = 4 if use_parallel else 1
+        
+        # Configure worker count based on dev mode
+        if use_parallel:
+            if dev_mode:
+                self.num_workers = 2  # Fewer workers in dev mode for less resource usage
+            else:
+                self.num_workers = 4  # Normal worker count for production
+        else:
+            self.num_workers = 1
         
         # State variables for user preferences
         self._asked_save_spectrograms = False
@@ -296,17 +304,34 @@ class AudioProcessor:
         if save_segments and not os.path.exists(segments_dir):
             os.makedirs(segments_dir)
         
-        # First pass: count total files
+        # First pass: count total files and apply dev mode limiting
         all_files = []
+        species_file_counts = {} if self.dev_mode else None
+        
         for root, dirs, files in os.walk(data_dir):
             wav_files = [f for f in files if f.endswith('.wav')]
             for file in wav_files:
+                # Use the English name as the label (parent folder of scientific name)
+                label = os.path.basename(os.path.dirname(root))
+                
+                # Dev mode: limit files per species during initial loading
+                if self.dev_mode:
+                    if label not in species_file_counts:
+                        species_file_counts[label] = 0
+                    if species_file_counts[label] >= self.dev_limit:
+                        continue  # Skip this file, already have enough for this species
+                    species_file_counts[label] += 1
+                
                 all_files.append((root, file))
         
         total_files = len(all_files)
         if total_files == 0:
             print(f"No audio files found in {data_dir}. Please check the directory.")
             return audio_clips, labels
+
+        if self.dev_mode:
+            print(f"🔧 DEV MODE: Limited to {self.dev_limit} files per species during segmentation")
+            print(f"Will process {total_files} files from {len(species_file_counts)} species")
 
         # Process files with progress bar
         with tqdm(total=total_files, desc="Processing audio files", unit="file") as pbar:
@@ -508,7 +533,10 @@ class AudioProcessor:
         
         if use_parallel and len(all_files) > 50:
             # Parallel processing
-            print(f"Using {self.num_workers} parallel workers...")
+            worker_msg = f"Using {self.num_workers} parallel workers"
+            if self.dev_mode:
+                worker_msg += " (reduced for dev mode)"
+            print(f"{worker_msg}...")
             
             # Prepare tasks for parallel processing
             file_tasks = [(file_path, duration, label) for file_path, file, label in all_files]
@@ -663,8 +691,10 @@ class AudioProcessor:
             
             # Prepare tasks and determine worker count
             tasks = [(audio, target_width) for audio in audio_files]
-            #num_workers = min(mp.cpu_count() // 2, 4) if self.dev_mode else min(mp.cpu_count(), 8)
-            print(f"Using {self.num_workers} parallel workers...")
+            worker_msg = f"Using {self.num_workers} parallel workers"
+            if self.dev_mode:
+                worker_msg += " (reduced for dev mode)"
+            print(f"{worker_msg}...")
 
             with ProcessPoolExecutor(max_workers=self.num_workers) as executor:
                 future_to_index = {executor.submit(extract_single_feature, task): i for i, task in enumerate(tasks)}
@@ -738,12 +768,32 @@ class AudioProcessor:
         """Save mel-spectrograms as images organized by species."""
         try:
             os.makedirs(output_dir, exist_ok=True)
-            print(f"📊 Saving {len(mel_features)} spectrograms to {output_dir}...")
+            
+            # Dev mode: limit spectrograms saved per species
+            if self.dev_mode:
+                print(f"📊 Saving spectrograms to {output_dir} (DEV MODE: max {self.dev_limit} per species)...")
+                species_saved_counts = {}
+                filtered_data = []
+                
+                for mel, label in zip(mel_features, labels):
+                    if label not in species_saved_counts:
+                        species_saved_counts[label] = 0
+                    if species_saved_counts[label] < self.dev_limit:
+                        filtered_data.append((mel, label))
+                        species_saved_counts[label] += 1
+                
+                print(f"🔧 DEV MODE: Filtered to {len(filtered_data)} spectrograms from {len(species_saved_counts)} species")
+                mel_features_to_save = [item[0] for item in filtered_data]
+                labels_to_save = [item[1] for item in filtered_data]
+            else:
+                print(f"📊 Saving {len(mel_features)} spectrograms to {output_dir}...")
+                mel_features_to_save = mel_features
+                labels_to_save = labels
             
             species_counts = {}
             
-            with tqdm(total=len(mel_features), desc="Saving spectrograms", unit="file") as pbar:
-                for i, (mel, label) in enumerate(zip(mel_features, labels)):
+            with tqdm(total=len(mel_features_to_save), desc="Saving spectrograms", unit="file") as pbar:
+                for i, (mel, label) in enumerate(zip(mel_features_to_save, labels_to_save)):
                     try:
                         # Track count for this species
                         species_counts[label] = species_counts.get(label, 0) + 1
@@ -773,7 +823,9 @@ class AudioProcessor:
             
             print(f"✅ Spectrograms saved successfully!")
             print(f"   📁 Output: {output_dir}")
-            print(f"   🎵 Total: {len(mel_features)}")
+            print(f"   🎵 Total: {len(mel_features_to_save)}")
+            if self.dev_mode:
+                print(f"   🔧 DEV MODE: Limited to {self.dev_limit} per species")
             print(f"   🐦 Species distribution:")
             for species, count in sorted(species_counts.items()):
                 print(f"      {species}: {count}")
@@ -790,7 +842,12 @@ class AudioProcessor:
         Creates image patches with positional encodings using memory-efficient batching.
         For ViT: 224x224 images → 16x16 patches = 196 patches × 258 features each (256 + 2 pos encoding)
         """
-        print(f"🧠 Creating {len(features)} image patches in batches of {batch_size} (memory-efficient)")
+        # Dev mode: reduce batch size for faster processing with limited data
+        if self.dev_mode:
+            batch_size = min(batch_size, 20)  # Smaller batches for dev mode
+            print(f"🧠 Creating {len(features)} image patches (DEV MODE: batch_size={batch_size})")
+        else:
+            print(f"🧠 Creating {len(features)} image patches in batches of {batch_size} (memory-efficient)")
         
         # Calculate dimensions and memory estimates
         grid_height = height // patch_size
@@ -801,7 +858,10 @@ class AudioProcessor:
         estimated_gb_per_batch = (batch_size * expected_sequence_length * patch_features * 8) / (1024**3)
         if estimated_gb_per_batch > 2.0:  # Limit to 2GB per batch
             batch_size = max(10, int(batch_size * 2.0 / estimated_gb_per_batch))
-            print(f"⚠️  Reduced batch size to {batch_size} for memory safety")
+            batch_size_msg = "memory safety"
+            if self.dev_mode:
+                batch_size_msg += " (DEV MODE)"
+            print(f"⚠️  Reduced batch size to {batch_size} for {batch_size_msg}")
 
         # Create positional encodings once
         pos_enc_height = np.repeat(np.arange(grid_height)[:, np.newaxis], grid_width, axis=1)
@@ -894,7 +954,33 @@ class AudioProcessor:
             os.makedirs(resampled_dir)
 
         print(f"Scanning directory: {download_dir}")
-        filenames = [f for f in os.listdir(download_dir) if f.endswith(".wav")]
+        all_filenames = [f for f in os.listdir(download_dir) if f.endswith(".wav")]
+        
+        # Apply dev mode limiting if enabled
+        if self.dev_mode:
+            print(f"🔧 DEV MODE: Limiting resampling to {self.dev_limit} files per species")
+            species_file_counts = {}
+            filenames = []
+            
+            for filename in all_filenames:
+                try:
+                    parts = filename[:-4].split('_')
+                    if len(parts) >= 4:
+                        english_name = parts[1]
+                        
+                        if english_name not in species_file_counts:
+                            species_file_counts[english_name] = 0
+                        if species_file_counts[english_name] < self.dev_limit:
+                            filenames.append(filename)
+                            species_file_counts[english_name] += 1
+                except:
+                    # If parsing fails, skip this file in dev mode
+                    continue
+            
+            print(f"Selected {len(filenames)} files from {len(species_file_counts)} species for resampling")
+        else:
+            filenames = all_filenames
+        
         failed_files = 0
         skipped_files = 0
         processed_files = 0
@@ -1058,6 +1144,14 @@ def main():
     print(f"   📊 Patch shape: {np.array(grid_patched_features).shape}")
     print(f"   🐦 Classes: {num_classes}")
     print(f"   📈 Training samples: {len(X_train)}")
+    
+    if dev_mode:
+        print(f"\n🔧 DEV MODE SUMMARY:")
+        print(f"   • Limited to {processor.dev_limit} files per species during resampling")
+        print(f"   • Limited to {processor.dev_limit} files per species during segmentation")
+        print(f"   • Limited to {processor.dev_limit} spectrograms per species when saving")
+        print(f"   • Used smaller batch sizes for faster processing")
+        print(f"   This ensures faster testing with representative data from each species.")
 
 if __name__ == "__main__":
     main()
