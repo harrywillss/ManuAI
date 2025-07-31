@@ -127,7 +127,7 @@ class BirdRecordingDownloader:
             start_time = time.time()
             for attempt in range(3):
                 try:
-                    resp = requests.get(file_url, timeout=30)
+                    resp = requests.get(file_url)
                     if resp.status_code == 200:
                         ext = os.path.splitext(file_url)[1].lower()
                         temp_path = filepath if ext == ".wav" else filepath.replace(".wav", ext)
