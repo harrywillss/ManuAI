@@ -7,7 +7,6 @@ It includes advanced quality filtering based on SNR, silence, and spectral chara
 
 import os
 import shutil
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
 import librosa
@@ -17,92 +16,23 @@ from tqdm import tqdm
 from PIL import Image
 import io
 from scipy.signal import medfilt
-from scipy import ndimage
 
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 
 os.nice(10)  # makes the process "nicer" to your system
 
-# Helper functions for parallel processing - must be at module level
-def load_single_segment(args):
-    """Load a single audio segment with error handling."""
-    file_path, duration, label = args
-    try:
-        # Try soundfile first (faster), fallback to librosa
-        try:
-            audio, sr = sf.read(file_path)
-            if audio.ndim > 1:  # Convert stereo to mono
-                audio = np.mean(audio, axis=1)
-        except:
-            audio, sr = librosa.load(file_path, sr=None)
-
-        # Ensure correct duration
-        expected_length = int(duration * sr)
-        if len(audio) != expected_length:
-            if len(audio) < expected_length:
-                audio = np.pad(audio, (0, expected_length - len(audio)), mode='constant')
-            else:
-                audio = audio[:expected_length]
-        
-        return audio, label, None
-    except Exception as e:
-        return None, None, str(e)
-
-# Extract mel-spectrogram features from a single audio clip
-def extract_single_feature(args):
-    """Extract mel-spectrogram features from a single audio clip."""
-    audio, target_width = args
-    try:
-        # Normalize audio
-        if np.max(np.abs(audio)) != 0:
-            audio = audio / np.max(np.abs(audio))
-        
-        # Bird sounds typically occupy frequencies from ~1kHz to 8kHz.
-        # Suitable values:
-        #   fmax: 8000 (captures most bird vocalizations)
-        #   hop_length: 256 (good time resolution, typical for 44.1kHz audio)
-        #   win_length: 1024 (about 23ms at 44.1kHz, balances time/frequency resolution)
-        mel_spec = librosa.feature.melspectrogram(
-            y=audio, sr=44100, n_mels=224, fmax=8000,
-            hop_length=256, win_length=1024
-        )
-        
-        # Convert to dB scale
-        mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
-        
-        # Adjust width to target
-        if mel_spec_db.shape[1] < target_width:
-            pad_width = target_width - mel_spec_db.shape[1]
-            mel_spec_db = np.pad(mel_spec_db, ((0, 0), (0, pad_width)), mode='constant')
-        elif mel_spec_db.shape[1] > target_width:
-            mel_spec_db = mel_spec_db[:, :target_width]
-            
-        return mel_spec_db, None
-    except Exception as e:
-        return None, str(e)
-
 class AudioProcessor:
     """Handles audio processing, feature extraction, and quality assessment for bird sound classification."""
     
     def __init__(self, data_dir="training_data", duration=4, save_segments=True, 
-                 segments_dir="segments", dev_mode=False, dev_limit=10, use_parallel=None):
+                 segments_dir="segments", dev_mode=False, dev_limit=10):
         self.data_dir = data_dir
         self.duration = duration
         self.save_segments = save_segments
         self.segments_dir = segments_dir
         self.dev_mode = dev_mode
         self.dev_limit = dev_limit
-        self.use_parallel = use_parallel
-        
-        # Configure worker count based on dev mode
-        if use_parallel:
-            if dev_mode:
-                self.num_workers = 2  # Fewer workers in dev mode for less resource usage
-            else:
-                self.num_workers = 4  # Normal worker count for production
-        else:
-            self.num_workers = 1
         
         # State variables for user preferences
         self._asked_save_spectrograms = False
@@ -119,19 +49,11 @@ class AudioProcessor:
         response = input(f"{question} (y/n): ").strip().lower()
         return response == 'y'
 
-    def ask_parallel_preference(self, operation_name="processing"):
-        """Ask user if they want to use parallel processing."""
-        if self.use_parallel is not None:
-            return self.use_parallel
-        return self._ask_user_preference(
-            f"Use parallel processing for {operation_name}? (faster but uses more CPU/memory)"
-        )
-
     def ask_save_spectrograms_preference(self):
         """Ask user if they want to save spectrograms during processing."""
         if not self._asked_save_spectrograms:
             self.save_spectrograms_enabled = self._ask_user_preference(
-                "Save spectrograms in organized folders? (creates spectrograms/ directory)"
+                "Save spectrograms in ed folders? (creates spectrograms/ directory)"
             )
             self._asked_save_spectrograms = True
             
@@ -375,7 +297,7 @@ class AudioProcessor:
 
         return segments
 
-    def load_audio_data(self, data_dir="training_data", duration=4, save_segments=True, segments_dir="segments"):
+    def load_audio_data(self, data_dir="training_data", save_segments=True, segments_dir="segments"):
         """
         Load audio data from the specified directory, segment it, and return audio clips and labels.
         """
@@ -388,7 +310,7 @@ class AudioProcessor:
         # Check if user wants to skip segmentation and use existing segments
         if os.path.exists(segments_dir) and input("Segments directory exists. Do you want to skip segmentation and load existing segments? (y/n): ").strip().lower() == 'y':
             print("Loading existing segments...")
-            return self.load_existing_segments(segments_dir, duration)
+            return self.load_existing_segments(segments_dir, self.duration)
 
         audio_clips = []
         labels = []
@@ -449,7 +371,7 @@ class AudioProcessor:
                     
                     # Use simple fixed-duration chunking with overlap
                     segments = []
-                    chunk_size = int(duration * sr)
+                    chunk_size = int(self.duration * sr)
                     hop_size = chunk_size // 2  # 50% overlap
                     
                     # Ask user if they want quality filtering (only ask once)
@@ -520,7 +442,7 @@ class AudioProcessor:
                     
                     segments_added = 0
                     for i, clip in enumerate(segments):
-                        expected_length = duration * sr
+                        expected_length = self.duration * sr
                         if len(clip) >= expected_length * 0.75:  # Accept segments that are at least 75% of the expected length
                             # Pad or trim to exact duration
                             if len(clip) < expected_length:
@@ -567,19 +489,14 @@ class AudioProcessor:
         
         return audio_clips, labels
 
-    def load_existing_segments(self, segments_dir, duration=4, use_parallel=None):
+    def load_existing_segments(self, segments_dir):
         """
         Load existing audio segments from the segments directory.
         
         Args:
             segments_dir: Directory containing audio segments
             duration: Expected duration of segments in seconds
-            use_parallel: Whether to use parallel processing (None=ask user)
         """
-        # Ask user preference if not specified
-        if use_parallel is None:
-            use_parallel = self.ask_parallel_preference("loading existing segments")
-        
         audio_clips = []
         labels = []
         
@@ -605,7 +522,6 @@ class AudioProcessor:
                         continue  # Skip this file, already have enough for this species
                     species_counts[label] += 1
                 
-                all_files.append((file_path, file, label))
         
         total_segments = len(all_files)
         
@@ -618,122 +534,47 @@ class AudioProcessor:
         # Ask about quality filtering
         use_quality_filter = input("Apply quality filtering to existing segments? (may remove poor quality segments) (y/n): ").strip().lower() == 'y'
         if use_quality_filter:
-            if use_parallel:
-                print("🔍 Quality filtering will be applied after parallel loading")
-            else:
-                print("🔍 Quality filtering enabled for existing segments")
+            print("🔍 Quality filtering enabled for existing segments")
         
         loaded_segments = 0
         failed_segments = 0
         quality_rejected = 0
         
-        if use_parallel and len(all_files) > 50:
-            # Parallel processing
-            worker_msg = f"Using {self.num_workers} parallel workers"
-            if self.dev_mode:
-                worker_msg += " (reduced for dev mode)"
-            print(f"{worker_msg}...")
-            
-            # Prepare tasks for parallel processing
-            file_tasks = [(file_path, duration, label) for file_path, file, label in all_files]
-            
-            # Process in parallel with progress bar
-            with ProcessPoolExecutor(max_workers=self.num_workers) as executor:
-                # Submit all tasks
-                future_to_path = {executor.submit(load_single_segment, task): task[0] for task in file_tasks}
+        # Load segments with progress bar
+        with tqdm(total=len(all_files), desc="Loading segments", unit="segment") as pbar:
+            for file_path, file, label in all_files:
+                pbar.set_postfix_str(f"Species: {label}")
                 
-                # Collect results as they complete with progress bar
-                with tqdm(total=total_segments, desc="Loading segments (parallel)", unit="segment") as pbar:
-                    for future in as_completed(future_to_path):
-                        file_path = future_to_path[future]
-                        try:
-                            audio, label, error = future.result()
-                            if error is None:
-                                audio_clips.append(audio)
-                                labels.append(label)
-                                loaded_segments += 1
-                                pbar.set_postfix_str(f"Species: {label}")
-                            else:
-                                tqdm.write(f"❌ Failed to load {os.path.basename(file_path)}: {error}")
-                                failed_segments += 1
-                                
-                        except Exception as e:
-                            tqdm.write(f"❌ Exception loading {os.path.basename(file_path)}: {str(e)}")
-                            failed_segments += 1
-                        
-                        pbar.update(1)
-            
-            # Apply quality filtering after parallel loading if requested
-            if use_quality_filter:
-                print(f"\n🔍 Applying quality filtering to {len(audio_clips)} loaded segments...")
-                filtered_clips = []
-                filtered_labels = []
-                quality_rejected = 0
-                
-                with tqdm(total=len(audio_clips), desc="Quality filtering", unit="segment") as pbar:
-                    for audio, label in zip(audio_clips, labels):
-                        try:
-                            # Assume 44100 Hz sample rate for quality assessment
-                            quality_result = self.assess_audio_quality(audio, 44100)
-                            if quality_result["pass"]:
-                                filtered_clips.append(audio)
-                                filtered_labels.append(label)
-                            else:
-                                quality_rejected += 1
-                        except:
-                            # If quality assessment fails, keep the segment
-                            filtered_clips.append(audio)
-                            filtered_labels.append(label)
-                        pbar.update(1)
-                
-                audio_clips = filtered_clips
-                labels = filtered_labels
-                loaded_segments = len(audio_clips)
-                
-                print(f"🔍 Quality filtering complete!")
-                print(f"   ❌ Rejected: {quality_rejected}")
-                print(f"   📈 Pass rate: {(loaded_segments/(loaded_segments + quality_rejected)*100):.1f}%" if (loaded_segments + quality_rejected) > 0 else "   📈 Pass rate: N/A")
-        
-        else:
-            # Sequential processing
-            if use_parallel and len(all_files) <= 50:
-                print(f"Using sequential processing ({len(all_files)} files, parallel not beneficial)")
-            
-            # Load segments with progress bar
-            with tqdm(total=len(all_files), desc="Loading segments", unit="segment") as pbar:
-                for file_path, file, label in all_files:
-                    pbar.set_postfix_str(f"Species: {label}")
+                try:
+                    # Load the audio segment
+                    audio, sr = librosa.load(file_path, sr=None)
+                    expected_length = int(self.duration * sr)
                     
-                    try:
-                        # Load the audio segment
-                        audio, sr = librosa.load(file_path, sr=None)
-                        expected_length = int(duration * sr)
-                        
-                        # Ensure the segment has the correct duration
-                        if len(audio) < expected_length:
-                            # Pad if too short
-                            audio = np.pad(audio, (0, expected_length - len(audio)), mode='constant')
-                        elif len(audio) > expected_length:
-                            # Trim if too long
-                            audio = audio[:expected_length]
-                        
-                        # Apply quality filtering if requested
-                        if use_quality_filter:
-                            quality_result = self.assess_audio_quality(audio, sr)
-                            if not quality_result["pass"]:
-                                quality_rejected += 1
-                                pbar.update(1)
-                                continue
-                        
-                        audio_clips.append(audio)
-                        labels.append(label)
-                        loaded_segments += 1
-                        
-                    except Exception as e:
-                        tqdm.write(f"❌ Failed to load {file}: {str(e)}")
-                        failed_segments += 1
+                    # Ensure the segment has the correct duration
+                    if len(audio) < expected_length:
+                        # Pad if too short
+                        audio = np.pad(audio, (0, expected_length - len(audio)), mode='constant')
+                    elif len(audio) > expected_length:
+                        # Trim if too long
+                        audio = audio[:expected_length]
                     
-                    pbar.update(1)
+                    # Apply quality filtering if requested
+                    if use_quality_filter:
+                        quality_result = self.assess_audio_quality(audio, sr)
+                        if not quality_result["pass"]:
+                            quality_rejected += 1
+                            pbar.update(1)
+                            continue
+                    
+                    audio_clips.append(audio)
+                    labels.append(label)
+                    loaded_segments += 1
+                    
+                except Exception as e:
+                    tqdm.write(f"❌ Failed to load {file}: {str(e)}")
+                    failed_segments += 1
+                
+                pbar.update(1)
         
         # Final reporting
         if self.dev_mode:
@@ -743,8 +584,7 @@ class AudioProcessor:
             print(f"🔧 DEV MODE complete! Loaded {loaded_segments} segments from {len(final_counts)} species")
             print(f"   Species distribution: {dict(final_counts)}")
         
-        processing_type = "parallel" if use_parallel and len(all_files) > 50 else "sequential"
-        print(f"\n✅ Loading complete ({processing_type})!")
+        print(f"\n✅ Loading complete!")
         print(f"   📊 Total available: {total_segments}")
         print(f"   ✅ Loaded: {loaded_segments}")
         print(f"   ❌ Failed: {failed_segments}")
@@ -765,88 +605,45 @@ class AudioProcessor:
             print(f"Validation failed for {file_path}: {str(e)}")
             return False
 
-    def extract_features(self, audio_files, target_width=224, use_parallel=None):
+    def extract_features(self, audio_files, target_width=224):
         """
         Extract mel-spectrogram features from audio files.
         
         Args:
             audio_files: List of audio arrays
             target_width: Target width for spectrograms (224 for ViT compatibility)
-            use_parallel: Whether to use parallel processing (None=ask user)
         """
-        # Ask user preference if not specified
-        if use_parallel is None:
-            use_parallel = self.ask_parallel_preference("feature extraction")
-        
         features = []
         failed_count = 0
         
-        if use_parallel and len(audio_files) > 50:
-            # Parallel processing
-            print(f"Extracting mel-spectrogram features from {len(audio_files)} audio clips (parallel)...")
-            
-            # Prepare tasks and determine worker count
-            tasks = [(audio, target_width) for audio in audio_files]
-            worker_msg = f"Using {self.num_workers} parallel workers"
-            if self.dev_mode:
-                worker_msg += " (reduced for dev mode)"
-            print(f"{worker_msg}...")
-
-            with ProcessPoolExecutor(max_workers=self.num_workers) as executor:
-                future_to_index = {executor.submit(extract_single_feature, task): i for i, task in enumerate(tasks)}
-                results = [None] * len(tasks)
-                
-                with tqdm(total=len(tasks), desc="Extracting features (parallel)", unit="clip") as pbar:
-                    for future in as_completed(future_to_index):
-                        index = future_to_index[future]
-                        try:
-                            feature, error = future.result()
-                            if error is None:
-                                results[index] = feature
-                                pbar.set_postfix_str(f"Shape: {feature.shape}")
-                            else:
-                                failed_count += 1
-                        except Exception:
-                            failed_count += 1
-                        pbar.update(1)
-                
-                # Filter out failed extractions
-                features = [result for result in results if result is not None]
+        print(f"Extracting mel-spectrogram features from {len(audio_files)} audio clips...")
         
-        else:
-            # Sequential processing
-            if use_parallel and len(audio_files) <= 50:
-                print(f"Using sequential processing ({len(audio_files)} files, parallel not beneficial)")
-            else:
-                print(f"Extracting mel-spectrogram features from {len(audio_files)} audio clips...")
-            
-            with tqdm(total=len(audio_files), desc="Extracting features", unit="clip") as pbar:
-                for audio in audio_files:
-                    try:
-                        # Normalize audio
-                        if np.max(np.abs(audio)) != 0:
-                            audio = audio / np.max(np.abs(audio))
-                        
-                        # Extract mel-spectrogram
-                        mel_spec = librosa.feature.melspectrogram(
-                            y=audio, sr=44100, n_mels=224, fmax=8000,
-                            hop_length=256, win_length=1024
-                        )
-                        
-                        # Convert to dB and adjust width
-                        mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
-                        mel_spec_db = self._adjust_spectrogram_width(mel_spec_db, target_width)
-                        
-                        features.append(mel_spec_db)
-                        pbar.set_postfix_str(f"Shape: {mel_spec_db.shape}")
-                    except Exception:
-                        failed_count += 1
+        with tqdm(total=len(audio_files), desc="Extracting features", unit="clip") as pbar:
+            for audio in audio_files:
+                try:
+                    # Normalize audio
+                    if np.max(np.abs(audio)) != 0:
+                        audio = audio / np.max(np.abs(audio))
                     
-                    pbar.update(1)
+                    # Extract mel-spectrogram
+                    mel_spec = librosa.feature.melspectrogram(
+                        y=audio, sr=44100, n_mels=224, fmax=8000,
+                        hop_length=256, win_length=1024
+                    )
+                    
+                    # Convert to dB and adjust width
+                    mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
+                    mel_spec_db = self._adjust_spectrogram_width(mel_spec_db, target_width)
+                    
+                    features.append(mel_spec_db)
+                    pbar.set_postfix_str(f"Shape: {mel_spec_db.shape}")
+                except Exception:
+                    failed_count += 1
+                
+                pbar.update(1)
         
-        processing_type = "parallel" if use_parallel and len(audio_files) > 50 else "sequential"
         success_count = len(features)
-        print(f"✅ Extracted {success_count} feature matrices ({processing_type})" + 
+        print(f"✅ Extracted {success_count} feature matrices" + 
               (f", failed: {failed_count}" if failed_count > 0 else ""))
         
         return features
@@ -1021,10 +818,6 @@ class AudioProcessor:
                 # Add batch to results and clean up memory
                 all_sequences.extend(batch_sequences)
                 del batch_sequences, batch_features
-                
-                # Force garbage collection after each batch
-                import gc
-                gc.collect()
         
         print(f"✅ Created {len(all_sequences)} patch sequences with shape: ({expected_sequence_length}, {patch_features})")
         return np.array(all_sequences), labels
@@ -1196,23 +989,20 @@ def main():
     
     # Setup configuration
     dev_mode = input("Enable dev mode? (10 segments per species for testing) (y/n): ").strip().lower() == 'y'
-    use_parallel = input("Use parallel processing? (faster but more memory) (y/n): ").strip().lower() == 'y'
     
     # Initialize processor
     if dev_mode:
         print("🔧 DEV MODE: Loading limited data for quick testing")
-        processor = AudioProcessor(dev_mode=True, dev_limit=10, use_parallel=use_parallel)
+        processor = AudioProcessor(dev_mode=True, dev_limit=10, duration=3)
     else:
-        processor = AudioProcessor(use_parallel=use_parallel)
+        processor = AudioProcessor(duration=3)
     
-    processing_mode = "parallel" if use_parallel else "sequential"
-    print(f"⚙️  Processing mode: {processing_mode}")
     print()
     
     # Load and process audio data
     print("📁 Loading audio data...")
     audio_clips, labels = processor.load_audio_data(
-        data_dir="training_data", duration=4, save_segments=True, segments_dir="segments"
+        data_dir="training_data", save_segments=True, segments_dir="segments"
     )
     print(f"✅ Loaded {len(audio_clips)} audio clips")
     
