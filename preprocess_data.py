@@ -8,7 +8,6 @@ It includes advanced quality filtering based on SNR, silence, and spectral chara
 import os
 import shutil
 from concurrent.futures import ProcessPoolExecutor, as_completed
-import multiprocessing as mp
 
 import numpy as np
 import librosa
@@ -16,9 +15,10 @@ import soundfile as sf
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
+
+os.nice(10)  # makes the process "nicer" to your system
 
 # Helper functions for parallel processing - must be at module level
 def load_single_segment(args):

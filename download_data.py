@@ -5,21 +5,20 @@ It also generates metadata and summary reports of the recordings.
 '''
 
 import os
+import time
 import requests
 import pandas as pd
 import re
 import tqdm
 from dotenv import load_dotenv
 import concurrent.futures
+#from pydub import AudioSegment
+import subprocess
+
+os.nice(10)  # makes the process "nicer" to your system
 
 # Load environment variables from .env file
 load_dotenv()
-
-# Bird types: ["Fantail", "Kākā", "Bellbird", "Tūī", "Kea", "Morepork", "Kākāpō", "House Sparrow"], # List of bird types to search for
-# Recording types: ["song", "call"]
-# Recording quality: ">C" (C or better)
-# Country: "New Zealand"
-# Group: "birds"
 
 class BirdRecordingDownloader:
     BASE_URL = "https://xeno-canto.org/api/3/recordings"
@@ -85,8 +84,17 @@ class BirdRecordingDownloader:
     def download_recordings(self, recordings, max_workers=4):
         '''
         Download recordings to the output directory using limited parallel threads.
+        Uses ffmpeg for audio conversion for better performance.
         '''
         downloaded = []
+
+        def convert_to_wav_ffmpeg(src_path, dest_path):
+            try:
+                subprocess.run([
+                    "ffmpeg", "-y", "-i", src_path, "-ar", "44100", "-ac", "1", dest_path
+                ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception as e:
+                print(f"❌ ffmpeg conversion failed: {e}")
 
         def download_one(rec):
             if "file" not in rec or "id" not in rec:
@@ -116,17 +124,28 @@ class BirdRecordingDownloader:
                 return filepath
 
             print(f"⬇️ Downloading {filename}...")
-            try:
-                resp = requests.get(file_url, timeout=30)
-                if resp.status_code == 200:
-                    with open(filepath, "wb") as f:
-                        f.write(resp.content)
-                    print(f"✅ Saved: {filename}")
-                    return filepath
-                else:
-                    print(f"❌ Failed to download {file_id}: {resp.status_code}")
-            except Exception as e:
-                print(f"❌ Error downloading {file_id}: {e}")
+            start_time = time.time()
+            for attempt in range(3):
+                try:
+                    resp = requests.get(file_url, timeout=60)
+                    if resp.status_code == 200:
+                        ext = os.path.splitext(file_url)[1].lower()
+                        temp_path = filepath if ext == ".wav" else filepath.replace(".wav", ext)
+                        with open(temp_path, "wb") as f:
+                            f.write(resp.content)
+                        # Convert if not wav using ffmpeg
+                        if ext != ".wav":
+                            print(f"🔄 Converting {temp_path} to WAV with ffmpeg...")
+                            convert_to_wav_ffmpeg(temp_path, filepath)
+                            os.remove(temp_path)
+                        elapsed_time = time.time() - start_time
+                        print(f"⏱️ Downloaded {filename} in {elapsed_time:.2f} seconds")
+                        print(f"✅ Saved: {filename}")
+                        return filepath
+                    else:
+                        print(f"❌ Failed to download {file_id}: {resp.status_code} (attempt {attempt + 1})")
+                except Exception as e:
+                    print(f"❌ Error downloading {file_id}: {e}")
             return None
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -211,8 +230,7 @@ class BirdRecordingDownloader:
         identity_unknown_count = df[df['english_name'] == "Identity unknown"].shape[0]
         if identity_unknown_count > 0:
             print(f"\nNumber of 'Identity unknown' recordings: {identity_unknown_count}")
-
-        
+  
     def filter_recordings(self, recordings):
         '''
         Filter recordings based on the specified bird types.
