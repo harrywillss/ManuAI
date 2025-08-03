@@ -658,35 +658,86 @@ class AudioProcessor:
         return mel_spec_db
     
     def save_spectrograms(self, mel_features, labels, output_dir="spectrograms"):
-        """Save mel-spectrograms as images organized by species."""
+        """Save mel-spectrograms with multiple storage options."""
+        print("\n📊 Spectrogram Storage Options:")
+        print("1. Skip saving (recommended - generate on-demand during training)")
+        print("2. Save as compressed numpy array (.npz)")
+        print("3. Save as individual PNG files (not recommended for large datasets)")
+        
+        choice = input("Choose option (1/2/3): ").strip()
+        
+        if choice == "1":
+            print("✅ Skipping spectrogram saving - will generate on-demand during training")
+            print("💡 Use the AudioSpectrogramDataset in finetune.ipynb for on-demand generation")
+            return True
+        
+        elif choice == "2":
+            return self._save_spectrograms_compressed(mel_features, labels, output_dir)
+        
+        elif choice == "3":
+            if len(mel_features) > 5000:
+                confirm = input(f"⚠️  Saving {len(mel_features)} PNG files will use significant disk space. Continue? (y/n): ")
+                if confirm.lower() != 'y':
+                    print("Cancelled PNG export")
+                    return False
+            return self._save_spectrograms_png(mel_features, labels, output_dir)
+        
+        else:
+            print("Invalid choice, skipping spectrogram saving")
+            return False
+
+    def _save_spectrograms_compressed(self, mel_features, labels, output_dir):
+        """Save spectrograms in compressed numpy format."""
+        try:
+            os.makedirs(output_dir, exist_ok=True)
+            output_file = os.path.join(output_dir, "spectrograms_compressed.npz")
+            
+            # Apply dev mode filtering if needed
+            if self.dev_mode:
+                mel_features, labels = self._apply_dev_mode_filtering(mel_features, labels)
+            
+            print(f"💾 Saving {len(mel_features)} spectrograms to compressed format...")
+            
+            # Save with metadata
+            np.savez_compressed(
+                output_file,
+                spectrograms=np.array(mel_features),
+                labels=np.array(labels),
+                metadata=np.array([{
+                    'num_samples': len(mel_features),
+                    'num_classes': len(set(labels)),
+                    'shape': np.array(mel_features).shape,
+                    'dev_mode': self.dev_mode,
+                    'dev_limit': self.dev_limit if self.dev_mode else None
+                }], dtype=object)
+            )
+            
+            file_size_mb = os.path.getsize(output_file) / (1024 * 1024)
+            print(f"✅ Spectrograms saved successfully!")
+            print(f"   📁 File: {output_file}")
+            print(f"   💾 Size: {file_size_mb:.1f} MB")
+            print(f"   🎵 Samples: {len(mel_features)}")
+            print(f"   🐦 Species: {len(set(labels))}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error saving compressed spectrograms: {str(e)}")
+            return False
+
+    def _save_spectrograms_png(self, mel_features, labels, output_dir):
+        """Save spectrograms as PNG files (original implementation)."""
         try:
             os.makedirs(output_dir, exist_ok=True)
             
-            # Dev mode: limit spectrograms saved per species
+            # Apply dev mode filtering if needed
             if self.dev_mode:
-                print(f"📊 Saving spectrograms to {output_dir} (DEV MODE: max {self.dev_limit} per species)...")
-                species_saved_counts = {}
-                filtered_data = []
-                
-                for mel, label in zip(mel_features, labels):
-                    if label not in species_saved_counts:
-                        species_saved_counts[label] = 0
-                    if species_saved_counts[label] < self.dev_limit:
-                        filtered_data.append((mel, label))
-                        species_saved_counts[label] += 1
-                
-                print(f"🔧 DEV MODE: Filtered to {len(filtered_data)} spectrograms from {len(species_saved_counts)} species")
-                mel_features_to_save = [item[0] for item in filtered_data]
-                labels_to_save = [item[1] for item in filtered_data]
-            else:
-                print(f"📊 Saving {len(mel_features)} spectrograms to {output_dir}...")
-                mel_features_to_save = mel_features
-                labels_to_save = labels
+                mel_features, labels = self._apply_dev_mode_filtering(mel_features, labels)
             
             species_counts = {}
             
-            with tqdm(total=len(mel_features_to_save), desc="Saving spectrograms", unit="file") as pbar:
-                for i, (mel, label) in enumerate(zip(mel_features_to_save, labels_to_save)):
+            with tqdm(total=len(mel_features), desc="Saving spectrograms", unit="file") as pbar:
+                for i, (mel, label) in enumerate(zip(mel_features, labels)):
                     try:
                         # Track count for this species
                         species_counts[label] = species_counts.get(label, 0) + 1
@@ -733,17 +784,88 @@ class AudioProcessor:
             
             print(f"✅ Spectrograms saved successfully!")
             print(f"   📁 Output: {output_dir}")
-            print(f"   🎵 Total: {len(mel_features_to_save)}")
+            print(f"   🎵 Total: {len(mel_features)}")
             if self.dev_mode:
                 print(f"   🔧 DEV MODE: Limited to {self.dev_limit} per species")
             print(f"   🐦 Species distribution:")
             for species, count in sorted(species_counts.items()):
                 print(f"      {species}: {count}")
                 
+            return True
+                
         except Exception as e:
             print(f"❌ Error in save_spectrograms: {str(e)}")
             import traceback
             traceback.print_exc()
+            return False
+
+    def _apply_dev_mode_filtering(self, mel_features, labels):
+        """Apply dev mode filtering to reduce dataset size."""
+        if not self.dev_mode:
+            return mel_features, labels
+        
+        print(f"🔧 DEV MODE: Filtering to max {self.dev_limit} per species...")
+        species_counts = {}
+        filtered_features = []
+        filtered_labels = []
+        
+        for mel, label in zip(mel_features, labels):
+            if label not in species_counts:
+                species_counts[label] = 0
+            if species_counts[label] < self.dev_limit:
+                filtered_features.append(mel)
+                filtered_labels.append(label)
+                species_counts[label] += 1
+        
+        print(f"Filtered to {len(filtered_features)} spectrograms from {len(species_counts)} species")
+        return filtered_features, filtered_labels
+
+    def generate_spectrogram_on_demand(self, audio_segment, target_size=(224, 224)):
+        """Generate spectrogram on-demand without saving to disk."""
+        try:
+            # Normalize audio
+            if np.max(np.abs(audio_segment)) != 0:
+                audio_segment = audio_segment / np.max(np.abs(audio_segment))
+            
+            # Extract mel-spectrogram
+            mel_spec = librosa.feature.melspectrogram(
+                y=audio_segment, sr=44100, n_mels=target_size[0], fmax=8000,
+                hop_length=256, win_length=1024
+            )
+            
+            # Convert to dB and adjust width
+            mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
+            mel_spec_db = self._adjust_spectrogram_width(mel_spec_db, target_size[1])
+            
+            # Convert to PIL Image for ViT compatibility
+            plt.figure(figsize=(6, 6))
+            plt.imshow(mel_spec_db, aspect='auto', origin='lower', cmap='viridis')
+            plt.axis('off')
+            plt.tight_layout()
+            
+            # Save to memory buffer
+            buf = io.BytesIO()
+            plt.savefig(buf, dpi=75, bbox_inches='tight', 
+                      pad_inches=0, facecolor='white', format='png')
+            plt.close()
+            
+            # Load from buffer and process for ViT compatibility
+            buf.seek(0)
+            img = Image.open(buf)
+            
+            # Convert RGBA to RGB (remove alpha channel)
+            if img.mode == 'RGBA':
+                img = img.convert('RGB')
+            
+            # Resize to target size for ViT compatibility
+            img = img.resize(target_size, Image.Resampling.LANCZOS)
+            buf.close()
+            
+            return img
+            
+        except Exception as e:
+            print(f"❌ Error generating spectrogram: {str(e)}")
+            return None
 
     def create_image_patches_with_position(
         self, features, labels, patch_size=16, height=224, width=224, expected_sequence_length=196, batch_size=50
@@ -1026,7 +1148,6 @@ def main():
     # Extract features
     print("🎵 Extracting mel-spectrogram features...")
     mel_features = processor.extract_features(X_train)
-    print(f"✅ Extracted {len(mel_features)} feature matrices")
     
     # Create ViT patches
     print("🧩 Creating image patches for Vision Transformer...")

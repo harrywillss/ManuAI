@@ -3,4 +3,6 @@ reports/
 training_data/
 segments/
 spectrograms/
+tensor_art/
 pc_speed_test.py
+safetensors_to_art.py
