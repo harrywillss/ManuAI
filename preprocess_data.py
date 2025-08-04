@@ -1,8 +1,6 @@
 '''
 Audio processing module for bird sound classification.
-This module handles loading audio files, segmenting them, extracting features,
-and preparing data for training a Vision Transformer (ViT) model.
-It includes advanced quality filtering based on SNR, silence, and spectral characteristics.
+This module handles audio loading, segmentation, feature extraction, and data preparation for training.
 '''
 
 import os
@@ -668,7 +666,6 @@ class AudioProcessor:
         
         if choice == "1":
             print("✅ Skipping spectrogram saving - will generate on-demand during training")
-            print("💡 Use the AudioSpectrogramDataset in finetune.ipynb for on-demand generation")
             return True
         
         elif choice == "2":
@@ -1036,8 +1033,8 @@ class AudioProcessor:
                         
                     file_id = parts[0]
                     english_name = parts[1]
-                    # Scientific name is exactly 2 parts: genus_species
-                    scientific_name = f"{parts[2]}_{parts[3]}"
+                    genus = parts[2]
+                    species = parts[3]
                     
                     # Quick validation before attempting to load
                     if os.path.getsize(path) == 0:
@@ -1083,7 +1080,7 @@ class AudioProcessor:
                         y = self.apply_noise_reduction(y, sr)
                         
                     # Save to nested folder
-                    nested_folder = os.path.join(resampled_dir, english_name, scientific_name)
+                    nested_folder = os.path.join(resampled_dir, english_name)
                     os.makedirs(nested_folder, exist_ok=True)
                     out_path = os.path.join(nested_folder, filename)
                     sf.write(out_path, y, sr)
