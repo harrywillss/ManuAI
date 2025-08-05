@@ -9,4 +9,5 @@ safetensors_to_art.py
 vit-base-manuai/
 vit-manuai-optimized/
 model_numeric/
-dont_ai.ipynb
+model-checkpoints/
+finetune_clean.ipynb
