@@ -10,3 +10,4 @@ model_numeric/
 model-checkpoints/
 safetensors_to_art.py
 brainstorm.md
+.env
