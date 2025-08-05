@@ -258,3 +258,5 @@ Project Link: [https://github.com/harrywillss/ManuAI](https://github.com/harrywi
 ---
 
 *Made with ❤️ for New Zealand's native bird conservation*
+
+machine-learning computer-vision audio-classification vision-transformer lora fine-tuning bird-sounds new-zealand conservation mel-spectrogram pytorch transformers huggingface xeno-canto ornithology
