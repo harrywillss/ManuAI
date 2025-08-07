@@ -12,3 +12,14 @@ safetensors_to_art.py
 brainstorm.md
 .env
 power_bill.py
+show_weights.py
+safetensors_to_nums.py
+weights_poster.png
+all_weights.png
+fantail.jpg
+all_weights.txt
+manuai_mask.png
+manuai_weights.png
+manuai_weights_silhouette.png
+manuai_weights_bird_silhouette.png
+manuai_weights_fade_flat.jpg
