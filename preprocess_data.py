@@ -966,7 +966,6 @@ class AudioProcessor:
         """
         For each .wav file in download_dir, resample to 44100 Hz if needed, and copy to resampled_dir
         in subfolders for both English and scientific names.
-        Now includes optional noise reduction preprocessing.
         """
         if input("Do you want to resample audio files? (y/n): ").strip().lower() != 'y':
             print("Skipping audio resampling.")
