@@ -19,20 +19,15 @@ ManuAI transforms bird audio recordings into mel spectrograms and uses computer 
 ```
 ManuAI/
 ├── README.md                    # Project documentation
-├── main.py                      # Main execution script
+├── main.py                      # Main execution script for downloading data & preprocessing
 ├── download_data.py             # Xeno-canto API data downloader
 ├── preprocess_data.py           # Audio preprocessing and segmentation
-├── dont_ai.ipynb              # Main training notebook
-├── finetune.ipynb              # Alternative fine-tuning notebook
-├── finetune_clean.ipynb        # Clean version of fine-tuning
-├── spectrogram_review.ipynb    # Spectrogram analysis and visualization
-├── safetensors_to_art.py       # Model conversion utilities
+├── lora-finetune.ipynb        # LoRA finetuning of model
 ├── brainstorm.md               # Project planning and ideas
 ├── downloads/                  # Raw audio files from Xeno-canto
 ├── segments/                   # Processed audio segments
-├── training_data/              # Prepared training data
-├── model-checkpoints/          # Model training checkpoints
-├── logs/                       # Training logs
+├── training_data/              # Prepared training data in subfolders
+├── logs/                       # Data logs
 └── reports/                    # Analysis reports
 ```
 
