@@ -23,3 +23,11 @@ manuai_weights.png
 manuai_weights_silhouette.png
 manuai_weights_bird_silhouette.png
 manuai_weights_fade_flat.jpg
+unknown_recordings/
+output/
+conf_matrix.png
+finetune.py
+finetune.ipynb
+vit-base-manuai/
+art/
+vit-base-manuai.zip
