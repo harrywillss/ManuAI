@@ -14,7 +14,6 @@ ManuAI transforms bird audio recordings into mel spectrograms and uses computer 
 - **Automated Data Pipeline**: Complete pipeline from data download to model training
 - **Early Stopping**: Prevents overfitting with configurable early stopping callbacks
 
-<<<<<<< HEAD
 ## 🏗️ Project Structure
 
 ```
@@ -32,16 +31,40 @@ ManuAI/
 └── reports/                    # Analysis reports
 ```
 
-=======
->>>>>>> ed0b7291b4af5eea67a0581fa00e44efdf88a902
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- Python 3.8+
-- CUDA-capable GPU (recommended for training)
-- 8GB+ RAM
-- ~10GB storage space for datasets
+
+## 🧑‍💻 How to Use
+
+Follow these steps to train and use ManuAI:
+
+1. **Download Data**
+   - Run `download_data.py` to fetch New Zealand bird recordings from Xeno-canto.
+   - Example:
+     ```bash
+     python download_data.py
+     ```
+
+2. **Preprocess Data**
+   - Run `preprocess_data.py` to segment and convert audio files into mel spectrograms.
+   - Example:
+     ```bash
+     python preprocess_data.py
+     ```
+
+3. **Fine-tune the Model**
+   - Open and run all cells in `lora-finetune.ipynb` to fine-tune the Vision Transformer model using LoRA.
+
+4. **Run Inference**
+   - Use `inference.py` to classify new bird audio samples.
+   - Example:
+     ```bash
+     python inference.py --input path/to/spectrogram.png
+     ```
+
+See each script/notebook for additional options and configuration details.
 
 ## 📊 Dataset
 
