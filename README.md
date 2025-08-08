@@ -14,6 +14,7 @@ ManuAI transforms bird audio recordings into mel spectrograms and uses computer 
 - **Automated Data Pipeline**: Complete pipeline from data download to model training
 - **Early Stopping**: Prevents overfitting with configurable early stopping callbacks
 
+<<<<<<< HEAD
 ## 🏗️ Project Structure
 
 ```
@@ -31,6 +32,8 @@ ManuAI/
 └── reports/                    # Analysis reports
 ```
 
+=======
+>>>>>>> ed0b7291b4af5eea67a0581fa00e44efdf88a902
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -39,38 +42,6 @@ ManuAI/
 - CUDA-capable GPU (recommended for training)
 - 8GB+ RAM
 - ~10GB storage space for datasets
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/harrywillss/ManuAI.git
-   cd ManuAI
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Set up environment variables** (optional)
-   Create a `.env` file for API configurations:
-   ```bash
-   # Add any API keys or configuration here
-   ```
-
-### Quick Start
-
-1. **Download and preprocess data**
-   ```bash
-   python main.py
-   ```
-
-2. **Train the model**
-   Open `dont_ai.ipynb` in Jupyter and run all cells, or use the command line:
-   ```bash
-   jupyter notebook dont_ai.ipynb
-   ```
 
 ## 📊 Dataset
 
@@ -102,18 +73,6 @@ The model currently supports classification of major New Zealand bird species in
 - **Input Size**: 224x224 RGB images (mel spectrograms)
 - **Patch Size**: 16x16 pixels
 
-### LoRA Configuration
-```python
-LoraConfig(
-    r=16,                           # Rank of adaptation
-    lora_alpha=16,                  # Scaling factor
-    target_modules=["query", "value"], # Target attention modules
-    lora_dropout=0.1,               # Dropout rate
-    bias="none",                    # No bias adaptation
-    modules_to_save=["classifier"]  # Save classifier head
-)
-```
-
 ### Training Features
 - **Class Weighting**: Handles imbalanced datasets
 - **Early Stopping**: Prevents overfitting
@@ -128,85 +87,6 @@ The model achieves competitive performance on New Zealand bird sound classificat
 - **Validation Accuracy**: ~80-85%
 - **Model Size**: ~22MB (LoRA adapter only)
 - **Inference Time**: <100ms per sample
-
-## 🛠️ Usage
-
-### Training a New Model
-
-```python
-# Configure training parameters
-batch_size = 64
-epochs = 10
-learning_rate = 2e-4
-
-# Run training
-python main.py
-```
-
-### Making Predictions
-
-```python
-from transformers import AutoImageProcessor
-from peft import PeftModel
-
-# Load model and processor
-model = PeftModel.from_pretrained(base_model, "path/to/lora/adapter")
-processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k")
-
-# Predict on new spectrogram
-prediction = predict_image_class(spectrogram_image, model, processor)
-print(f"Predicted bird species: {prediction}")
-```
-
-## 🔧 Configuration
-
-### Audio Processing Parameters
-```python
-# Mel spectrogram settings
-n_mels = 128          # Number of mel bands
-n_fft = 2048          # FFT window size
-hop_length = 512      # Hop length for STFT
-sr = 44100            # Sample rate
-fmin = 50             # Minimum frequency
-fmax = 22050          # Maximum frequency (Nyquist)
-```
-
-### Training Parameters
-```python
-# Training configuration
-batch_size = 64
-learning_rate = 2e-4
-warmup_ratio = 0.1
-weight_decay = 0.01
-gradient_accumulation_steps = 4
-```
-
-## 📋 Requirements
-
-### Core Dependencies
-```
-torch>=1.9.0
-transformers>=4.21.0
-datasets>=2.0.0
-peft>=0.3.0
-librosa>=0.9.0
-scikit-learn>=1.0.0
-numpy>=1.21.0
-pandas>=1.3.0
-matplotlib>=3.5.0
-seaborn>=0.11.0
-tqdm>=4.62.0
-requests>=2.26.0
-soundfile>=0.10.0
-Pillow>=8.3.0
-```
-
-### Optional Dependencies
-```
-jupyter>=1.0.0        # For notebook execution
-python-dotenv>=0.19.0 # For environment variables
-tensorboard>=2.7.0    # For training visualization
-```
 
 ## 🤝 Contributing
 
