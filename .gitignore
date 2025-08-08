@@ -20,6 +20,7 @@ power_bill.py
 show_weights.py
 safetensors_to_nums.py
 finetune.py
+inference.py
 finetune.ipynb
 weights_poster.png
 all_weights.png
@@ -34,3 +35,5 @@ brainstorm.md
 all_weights.txt
 notes.txt
 .env
+.gitignore
+.DS_Store
