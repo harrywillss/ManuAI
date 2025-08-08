@@ -1,2 +1,0 @@
-- Using Mel Spectrogram (which tends to be used for human level hearing) as it is still able to capture the frequency of practically all birds, and with 126 bins it has more to gather. It is also more computationally efficient as it is smaller than a linear spectrogram.
-
