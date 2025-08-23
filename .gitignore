@@ -15,13 +15,11 @@ art/
 .vscode/
 __pycache__/
 vit-base-manuai-peft/
-vit-base-manuai.zip
 safetensors_to_art.py
 power_bill.py
 show_weights.py
 safetensors_to_nums.py
 finetune.py
-inference.py
 finetune.ipynb
 weights_poster.png
 all_weights.png
