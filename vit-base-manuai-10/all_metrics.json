@@ -1,0 +1,33 @@
+{
+  "train_metrics": {
+    "train_runtime": 8537.6426,
+    "train_samples_per_second": 33.733,
+    "train_steps_per_second": 2.108,
+    "total_flos": 1.6481456941694976e+19,
+    "train_loss": 0.40282960160212083,
+    "epoch": 22.0
+  },
+  "eval_metrics": {
+    "eval_loss": 0.3450286090373993,
+    "eval_accuracy": 0.90625,
+    "eval_runtime": 45.1462,
+    "eval_samples_per_second": 53.161,
+    "eval_steps_per_second": 6.645,
+    "epoch": 22.0
+  },
+  "f1_score": 0.9096839974999479,
+  "precision": 0.9102673024218875,
+  "recall": 0.9095833333333333,
+  "accuracy_per_class": {
+    "bellbird": 0.8406374501992032,
+    "fantail": 0.8870967741935484,
+    "kaka": 0.9148936170212766,
+    "morepork": 0.9742489270386266,
+    "robin": 0.9166666666666666,
+    "saddleback": 0.9333333333333333,
+    "silvereye": 0.9523809523809523,
+    "tomtit": 0.934156378600823,
+    "tui": 0.8237704918032787,
+    "whitehead": 0.9282511210762332
+  }
+}

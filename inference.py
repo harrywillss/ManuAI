@@ -5,8 +5,8 @@ import numpy as np
 import librosa
 from PIL import Image
 import torchaudio.transforms as T
-from transformers import ViTImageProcessor, ViTForImageClassification, TrainingArguments, Trainer, EarlyStoppingCallback
-import soundfile as sf
+from transformers import ViTImageProcessor, ViTForImageClassification
+import torch.nn.functional as F
 #from tqdm import tqdm
 import os
 
@@ -225,9 +225,7 @@ def load_model(model_path):
 def predict(model, processor, mel_spectrograms, batch_size=16, device=None, return_all_probs=False):
     """
     Perform inference on the mel spectrograms using the loaded model.
-    Returns:
-      - predictions: list of (pred_class_idx, top_conf) per segment
-      - all_probs (optional): tensor of shape [num_segments, num_classes] with per-segment probabilities
+    Returns predictions as a list of (predicted_class, confidence_score)
     """
     if model is None or processor is None:
         print("Model or processor not loaded. Cannot perform inference.")
@@ -298,7 +296,7 @@ def main(audio_file, model_path, output_dir):
         # print(f"Overall Prediction (log-sum): {overall_bird_name}, Confidence Score: {overall_confidence_score:.4f}")
 
 if __name__ == "__main__":
-    model_path = "vit-base-manuai"
+    model_path = "vit-base-manuai-10/vit-base-manuai"
     recordings_dir = "unknown_recordings"
 
     audio_files = [f for f in os.listdir(recordings_dir) if f.endswith('.wav')]
