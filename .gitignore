@@ -15,7 +15,7 @@ art/
 .vscode/
 __pycache__/
 vit-base-manuai-peft/\
-vit-base-manuai-10/vit-base-manuai.zip
+vit-base-manuai-10/
 safetensors_to_art.py
 power_bill.py
 show_weights.py
