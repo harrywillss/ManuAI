@@ -14,27 +14,7 @@ ManuAI transforms bird audio recordings into mel spectrograms and uses computer 
 - **Automated Data Pipeline**: Complete pipeline from data download to model training
 - **Early Stopping**: Prevents overfitting with configurable early stopping callbacks
 
-## 🏗️ Project Structure
-
-```
-ManuAI/
-├── README.md                    # Project documentation
-├── main.py                      # Main execution script for downloading data & preprocessing
-├── download_data.py             # Xeno-canto API data downloader
-├── preprocess_data.py           # Audio preprocessing and segmentation
-├── lora-finetune.ipynb        # LoRA finetuning of model
-├── brainstorm.md               # Project planning and ideas
-├── downloads/                  # Raw audio files from Xeno-canto
-├── segments/                   # Processed audio segments
-├── training_data/              # Prepared training data in subfolders
-├── logs/                       # Data logs
-└── reports/                    # Analysis reports
-```
-
 ## 🚀 Getting Started
-
-### Prerequisites
-
 
 ## 🧑‍💻 How to Use
 
@@ -59,11 +39,7 @@ Follow these steps to train and use ManuAI:
 
 4. **Run Inference**
    - Use `inference.py` to classify new bird audio samples.
-   - Example:
-     ```bash
-     python inference.py --input path/to/spectrogram.png
-     ```
-
+   - 
 See each script/notebook for additional options and configuration details.
 
 ## 📊 Dataset
@@ -80,7 +56,7 @@ The project uses bird recordings from [Xeno-canto](https://xeno-canto.org/), a c
 
 ### Supported Bird Species
 
-The model currently supports classification of major New Zealand bird species including:
+The model currently supports classification of 10 New Zealand bird species including:
 - Tui (*Prosthemadera novaeseelandiae*)
 - Bellbird (*Anthornis melanura*)
 - Kaka (*Nestor meridionalis*)
@@ -106,8 +82,8 @@ The model currently supports classification of major New Zealand bird species in
 
 The model achieves competitive performance on New Zealand bird sound classification:
 
-- **Training Accuracy**: ~85-90%
-- **Validation Accuracy**: ~80-85%
+- **Training Accuracy**: ~93%
+- **Validation Accuracy**: ~91%
 - **Model Size**: ~22MB (LoRA adapter only)
 - **Inference Time**: <100ms per sample
 
