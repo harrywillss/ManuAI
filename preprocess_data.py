@@ -436,7 +436,7 @@ def main():
     processor = AudioProcessor(
         dev_mode=dev_mode,
         dev_limit=10,
-        duration=3,
+        duration=4.0,
         use_quality_filter=use_quality_filter,
         use_noise_reduction=use_noise_reduction
     )

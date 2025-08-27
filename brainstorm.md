@@ -68,3 +68,8 @@ scipy transform - rfft
 usually 24khz
 
 rsfft
+
+
+# UPDATES
+
+Using 4.0s segments has seen big increase in accuracy for all birds, especially Tui (mimic buggers)

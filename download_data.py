@@ -130,7 +130,15 @@ class BirdRecordingDownloader:
                 "scientific_name": rec.get("sp", "Unknown"),
                 "sex": rec.get("sex", "Unknown"),
                 "file_url": rec["file"],
-                "length": self._parse_length(rec.get("length", "0:00"))
+                "length": self._parse_length(rec.get("length", "0:00")),
+                "license": rec.get("lic", "unknown").replace(" ", "_"),
+                "location": rec.get("loc", "unknown").replace(" ", "_"),
+                "bird_type": rec.get("type", "call").replace(" ", "_").replace("/", "_"),
+                "also": rec.get("also", []),
+                "smp": rec.get("smp", "unknown"),
+                "seen": rec.get("animal-seen", "unknown"),
+                "regnr": rec.get("regnr", "unknown"),
+                "file": rec.get("file", "unknown")
             }
             for rec in recordings if "file" in rec and "id" in rec
         ]
@@ -140,7 +148,7 @@ class BirdRecordingDownloader:
         """Save metadata to CSV in logs/."""
         df = self._prepare_data(recordings)
         os.makedirs("logs", exist_ok=True)
-        df[["id", "generic_name", "scientific_name", "english_name", "sex", "file_url", "length"]].to_csv(os.path.join("logs", csv_filename), index=False)
+        df[["id", "generic_name", "scientific_name", "english_name", "sex", "file_url", "length", "license", "location", "bird_type", "also", "smp", "seen", "regnr", "file"]].to_csv(os.path.join("logs", csv_filename), index=False)
         print(f"📊 CSV saved to logs/{csv_filename}")
 
     def report_summary(self, recordings):

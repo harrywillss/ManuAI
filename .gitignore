@@ -3,7 +3,6 @@ reports/
 training_data/
 segments/
 spectrograms/
-tensor_art/
 vit-base-manuai/
 vit-manuai-optimized/
 model_numeric/
@@ -38,3 +37,4 @@ notes.txt
 .gitignore
 .DS_Store
 bfg-1.15.0.jar
+10-vit-base-manuai.zip
