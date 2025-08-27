@@ -39,7 +39,11 @@ Follow these steps to train and use ManuAI:
 
 4. **Run Inference**
    - Use `inference.py` to classify new bird audio samples.
-   - 
+   - Example:
+   ```bash
+   python inference.py
+   ```
+   
 See each script/notebook for additional options and configuration details.
 
 ## 📊 Dataset
