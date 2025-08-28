@@ -19,8 +19,6 @@ safetensors_to_art.py
 power_bill.py
 show_weights.py
 safetensors_to_nums.py
-finetune.py
-finetune.ipynb
 weights_poster.png
 all_weights.png
 fantail.jpg
@@ -38,3 +36,8 @@ notes.txt
 .DS_Store
 bfg-1.15.0.jar
 10-vit-base-manuai.zip
+peft-vit-base-manuai/
+success/
+manuai_checkpoints/
+manuai_lora_adapter/
+manuai-base-10.zip

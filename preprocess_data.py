@@ -40,34 +40,69 @@ class AudioProcessor:
             'quality_pass_score': 60
         }
 
-    def apply_noise_reduction(self, audio, sr):
-        """Apply noise reduction using spectral gating and median filtering."""
-        if not self.use_noise_reduction:
-            return audio
-        try:
-            # Remove DC offset
-            audio = audio - np.mean(audio)
-            
-            # Median filter for click/pop removal
-            audio = medfilt(audio, kernel_size=3)
-            
-            # Spectral gating
-            stft = librosa.stft(audio, hop_length=256, win_length=1024)
-            magnitude = np.abs(stft)
-            phase = np.angle(stft)
-            sorted_mags = np.sort(magnitude.flatten())
-            noise_floor = np.mean(sorted_mags[:int(len(sorted_mags) * 0.1)])
-            noise_mask = magnitude < (self.config['noise_gate_threshold'] * np.max(magnitude))
-            magnitude[noise_mask] *= self.config['noise_reduce_factor']
-            audio = librosa.istft(magnitude * np.exp(1j * phase), hop_length=256, win_length=1024)
-            
-            # Normalise
-            if np.max(np.abs(audio)) > 0:
-                audio = audio / np.max(np.abs(audio)) * 0.95
-            return audio
-        except Exception as e:
-            print(f"Warning: Noise reduction failed: {e}")
-            return audio
+    def quality_filter(self, y, sr, snr_threshold=5, silence_ratio_threshold=0.85,
+                   min_centroid=300, max_centroid=10000, max_zcr=0.35):
+        """
+        Light per-frequency-bin spectral gating.
+        Keeps weak bird calls by avoiding over-suppression.
+        """
+        # Frame-wise RMS
+        rms = librosa.feature.rms(y=y)[0]
+        if len(rms) == 0:
+            return False  # Empty
+
+        # SNR (top 10% vs bottom 10%)
+        rms_sorted = np.sort(rms)
+        low, high = np.mean(rms_sorted[:len(rms)//10]), np.mean(rms_sorted[-len(rms)//10:])
+        snr = 20 * np.log10(high / (low + 1e-8))
+
+        # Silence ratio
+        silence_threshold = 0.05 * np.mean(rms)  # was 0.1 before
+        silence_ratio = np.sum(rms < silence_threshold) / len(rms)
+
+        # Spectral centroid
+        centroid = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
+        centroid_mean = np.mean(centroid)
+
+        # Zero-crossing rate
+        zcr = np.mean(librosa.feature.zero_crossing_rate(y))
+
+        # Apply relaxed thresholds
+        if snr < snr_threshold:
+            return False
+        if silence_ratio > silence_ratio_threshold:
+            return False
+        if not (min_centroid <= centroid_mean <= max_centroid):
+            return False
+        if zcr > max_zcr:
+            return False
+
+        return True
+    
+    def apply_noise_reduction(self, y, sr, noise_reduce_factor=0.8, n_fft=1024, hop_length=256):
+        """
+        Light per-frequency-bin spectral gating.
+        Keeps weak bird calls by avoiding over-suppression.
+        """
+        # DC offset removal
+        y = y - np.mean(y)
+
+        # Short FFT
+        stft = librosa.stft(y, n_fft=n_fft, hop_length=hop_length)
+        magnitude, phase = np.abs(stft), np.angle(stft)
+
+        # Estimate noise floor per frequency bin (10th percentile across time)
+        noise_profile = np.percentile(magnitude, 10, axis=1, keepdims=True)
+
+        # Build a mask: keep bins above noise profile, attenuate others
+        mask = magnitude >= noise_profile
+        magnitude_denoised = magnitude * (mask + (1 - mask) * noise_reduce_factor)
+
+        # Reconstruct
+        stft_denoised = magnitude_denoised * np.exp(1j * phase)
+        y_denoised = librosa.istft(stft_denoised, hop_length=hop_length)
+
+        return y_denoised.astype(np.float32)
 
     def _compute_snr(self, audio, frame_length=2048, hop_length=512):
         """Compute SNR as a proxy using RMS energy."""
