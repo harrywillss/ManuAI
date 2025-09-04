@@ -10,15 +10,30 @@ import soundfile as sf
 from tqdm import tqdm
 from scipy.signal import medfilt
 from sklearn.preprocessing import LabelEncoder
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 os.nice(10)  # makes the process "nicer" to your system (memory problems fr)
+
+def process_file(args):
+    root, file, label, processor = args
+    sr = processor.config['target_sr']
+    file_path = os.path.join(root, file)
+    audio, error = processor.load_and_validate_audio(file_path, min_duration=1.0, target_sr=sr)
+    if error:
+        return [], [], f"{file}: {error}"
+    if processor.use_noise_reduction:
+        audio = processor.apply_noise_reduction(audio, sr)
+    chunk_size = int(processor.duration * sr)
+    hop_size = chunk_size // 2
+    segments = processor._segment_audio(audio, sr, chunk_size, hop_size)
+    return segments, [label]*len(segments), None
 
 class AudioProcessor:
     """Handles audio processing, and quality assessment for bird sound classification."""
     
-    def __init__(self, data_dir="training_data", duration=4, save_segments=True,
+    def __init__(self, data_dir="training_data", duration=3.0, save_segments=True,
                  segments_dir="segments", dev_mode=False, dev_limit=10,
-                 use_quality_filter=False, use_noise_reduction=False):
+                 use_quality_filter=False, use_noise_reduction=False, n_proc=1):
         self.data_dir = data_dir
         self.duration = duration
         self.save_segments = save_segments
@@ -27,17 +42,18 @@ class AudioProcessor:
         self.dev_limit = dev_limit
         self.use_quality_filter = use_quality_filter
         self.use_noise_reduction = use_noise_reduction
+        self.n_proc = n_proc
         self.config = {
             'target_sr': 22050,
             'min_duration': 1.0,
             'noise_gate_threshold': 0.02,
             'noise_reduce_factor': 0.6,
-            'min_snr': 10.0,
-            'max_silence_ratio': 0.7,
+            'min_snr': 14.0,
+            'max_silence_ratio': 0.5,
             'min_spectral_centroid': 500,
             'max_spectral_centroid': 8000,
             'max_zcr': 0.3,
-            'quality_pass_score': 60
+            'quality_pass_score': 65
         }
 
     def quality_filter(self, y, sr, snr_threshold=5, silence_ratio_threshold=0.85,
@@ -214,7 +230,7 @@ class AudioProcessor:
         segments = []
         for start in range(0, len(audio) - chunk_size + 1, hop_size):
             chunk = audio[start:start + chunk_size]
-            if len(chunk) == chunk_size and np.max(np.abs(chunk)) > 0.01:
+            if len(chunk) == chunk_size and np.max(np.abs(chunk)) > 0.005:
                 if self.use_quality_filter:
                     quality_result = self.assess_audio_quality(chunk, sr)
                     if quality_result["pass"]:
@@ -468,12 +484,17 @@ def main():
 
     if dev_mode:
         print("🔧 DEV MODE: Loading limited data for quick testing")
+
+    n_proc = 4 # Number of processors to use throughout
+    duration = 4.0
+    
     processor = AudioProcessor(
         dev_mode=dev_mode,
         dev_limit=10,
-        duration=4.0,
+        duration=duration,
         use_quality_filter=use_quality_filter,
-        use_noise_reduction=use_noise_reduction
+        use_noise_reduction=use_noise_reduction,
+        n_proc=n_proc
     )
     print()
     print("📁 Loading audio data...")
