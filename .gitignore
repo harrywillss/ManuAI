@@ -40,4 +40,6 @@ peft-vit-base-manuai/
 success/
 manuai_checkpoints/
 manuai_lora_adapter/
-manuai-base-10.zip
+manuai-lora-10.zip
+inference_outputs/
+output.png

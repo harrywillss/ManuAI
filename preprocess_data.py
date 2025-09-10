@@ -10,23 +10,8 @@ import soundfile as sf
 from tqdm import tqdm
 from scipy.signal import medfilt
 from sklearn.preprocessing import LabelEncoder
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 os.nice(10)  # makes the process "nicer" to your system (memory problems fr)
-
-def process_file(args):
-    root, file, label, processor = args
-    sr = processor.config['target_sr']
-    file_path = os.path.join(root, file)
-    audio, error = processor.load_and_validate_audio(file_path, min_duration=1.0, target_sr=sr)
-    if error:
-        return [], [], f"{file}: {error}"
-    if processor.use_noise_reduction:
-        audio = processor.apply_noise_reduction(audio, sr)
-    chunk_size = int(processor.duration * sr)
-    hop_size = chunk_size // 2
-    segments = processor._segment_audio(audio, sr, chunk_size, hop_size)
-    return segments, [label]*len(segments), None
 
 class AudioProcessor:
     """Handles audio processing, and quality assessment for bird sound classification."""
@@ -298,7 +283,7 @@ class AudioProcessor:
                         stats["processed"] += 1
                         stats["segments"] += len(segments)
                         for i, clip in enumerate(segments):
-                            if len(clip) >= chunk_size * 0.75:
+                            if len(clip) >= chunk_size * 0.85:  # Only keep segments that are at least 85% of target length
                                 clip = self.pad_or_trim_audio(clip, chunk_size)
                                 audio_clips.append(clip)
                                 labels.append(label)
@@ -393,7 +378,7 @@ class AudioProcessor:
         if os.path.exists(resampled_dir):
             print(f"Directory {resampled_dir} already exists. Deleting entire folder.")
             shutil.rmtree(resampled_dir)
-        os.makedirs(resampled_dir)
+            os.makedirs(resampled_dir)
 
         all_filenames = [f for f in os.listdir(download_dir) if f.endswith(".wav")]
         if self.dev_mode:
