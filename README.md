@@ -6,11 +6,13 @@ A machine learning project that classifies New Zealand bird sounds using Vision 
 
 ManuAI transforms bird audio recordings into mel spectrograms and uses computer vision techniques to classify different New Zealand bird species. The project leverages the unique approach of treating audio classification as an image classification problem, using Google's Vision Transformer (ViT) model fine-tuned with LoRA for efficient training.
 
+Key takeaway: Visually classifying sound -> seeing sounds...
+
 ### Key Features
 
 - **Audio-to-Image Conversion**: Converts bird audio recordings to mel spectrograms for visual processing
 - **LoRA Fine-tuning**: Efficient parameter-efficient fine-tuning of pre-trained ViT models
-- **Class Imbalance Handling**: Implements weighted loss functions to handle imbalanced datasets
+- **Class Imbalance Handling**: Implements augmentation to handle imbalanced datasets
 - **Automated Data Pipeline**: Complete pipeline from data download to model training
 - **Early Stopping**: Prevents overfitting with configurable early stopping callbacks
 
@@ -86,8 +88,10 @@ The model currently supports classification of 10 New Zealand bird species inclu
 
 The model achieves competitive performance on New Zealand bird sound classification:
 
-- **Training Accuracy**: ~93%
-- **Validation Accuracy**: ~91%
+- **Validation Accuracy**: ~96.2%
+- **F1 Score**: ~96.2%
+- **Precision & Recall**: ~96.2%
+- **AUC**: ~99.8%
 - **Model Size**: ~22MB (LoRA adapter only)
 - **Inference Time**: <100ms per sample
 
@@ -105,7 +109,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ## 🙏 Acknowledgments
 
@@ -119,10 +123,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use this project in your research, please cite:
 
 ```bibtex
-@misc{manuai2024,
+@misc{manuai2025,
   title={ManuAI: New Zealand Bird Sound Classification using Vision Transformers},
   author={Harry Wills},
-  year={2024},
+  year={2025},
   url={https://github.com/harrywillss/ManuAI}
 }
 ```
