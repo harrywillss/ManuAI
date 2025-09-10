@@ -6,7 +6,7 @@ A machine learning project that classifies New Zealand bird sounds using Vision 
 
 ManuAI transforms bird audio recordings into mel spectrograms and uses computer vision techniques to classify different New Zealand bird species. The project leverages the unique approach of treating audio classification as an image classification problem, using Google's Vision Transformer (ViT) model fine-tuned with LoRA for efficient training.
 
-Key takeaway: Visually classifying sound -> seeing sounds...
+Key takeaway: Visually classifying sound --> seeing sounds...
 
 ### Key Features
 
