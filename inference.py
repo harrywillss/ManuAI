@@ -255,7 +255,7 @@ def load_model(model_path, lora_adapter_path=None):
     try:
         # Load config to get num_labels, id2label, label2id
         config = ViTConfig.from_pretrained(model_path)
-        print(f"Loaded config: num_labels={config.num_labels}, id2label={config.id2label}")
+        #print(f"Loaded config: num_labels={config.num_labels}, id2label={config.id2label}")
         num_labels = config.num_labels
         id2label = config.id2label
         label2id = config.label2id
@@ -277,7 +277,7 @@ def load_model(model_path, lora_adapter_path=None):
         print(f"Error loading model from {model_path}: {e}")
         return None, None, None
     
-def predict(model, processor, mel_spectrograms, batch_size=32, device=None, return_all_probs=False):
+def predict(model, processor, mel_spectrograms, batch_size=16, device=None, return_all_probs=False):
     """
     Perform inference on the mel spectrograms using the loaded model.
     Returns predictions as a list of (predicted_class, confidence_score)
@@ -294,6 +294,19 @@ def predict(model, processor, mel_spectrograms, batch_size=32, device=None, retu
     predictions = []
     all_prob_chunks = []
 
+    corresponding_classes = {
+        0: "Bellbird",
+        1: "Fantail",
+        2: "Kaka",
+        3: "Morepork",
+        4: "Robin",
+        5: "Saddleback",
+        6: "Silvereye",
+        7: "Tomtit",
+        8: "Tūi",
+        9: "Whitehead"
+    }
+
     with torch.inference_mode():
         for i in range(0, len(mel_spectrograms), batch_size):
             batch_imgs = mel_spectrograms[i:i + batch_size]
@@ -304,7 +317,7 @@ def predict(model, processor, mel_spectrograms, batch_size=32, device=None, retu
             predictions.extend(list(zip(top_idx.tolist(), top_conf.tolist())))
             if return_all_probs:
                 all_prob_chunks.append(probs.cpu())
-
+        
     if return_all_probs:
         if all_prob_chunks:
             all_probs = torch.cat(all_prob_chunks, dim=0)
@@ -312,14 +325,37 @@ def predict(model, processor, mel_spectrograms, batch_size=32, device=None, retu
             # Create an empty tensor with the correct number of classes from the model config
             num_classes = getattr(getattr(model, "config", object()), "num_labels", 0)
             all_probs = torch.empty((0, num_classes)) if num_classes > 0 else None
-        return predictions, all_probs
-    return predictions
+    predictions = [(corresponding_classes.get(cls, "Unknown"), score) for cls, score in predictions]
+    return predictions, all_probs
+    # bellbird
+    # fantail
+    # kaka
+    # morepork
+    # robin
+    # saddleback
+    # silvereye
+    # tomtit
+    # tui
+    # whitehead
 
 def main(audio_file, model_path, lora_adapter_path, output_dir):
+    # Best thresholds per class
+    class_thresholds = {
+        'Bellbird': 0.020809292793273926,
+        'Fantail': 0.9942131638526917,
+        'Kaka': 0.8616830706596375,
+        'Morepork': 0.9642879366874695,
+        'Robin': 0.9147465229034424,
+        'Saddleback': 0.9791096448898315,
+        'Silvereye': 0.8673383593559265,
+        'Tomtit': 0.9282429814338684,
+        'Tūi': 0.9926406741142273,
+        'Whitehead': 0.8489900827407837
+    }
     """
     Main function to process a single audio file and perform inference.
     """
-    mel_spectrograms = process_audio(audio_file, duration=3.0, quality_filter=True)
+    mel_spectrograms = process_audio(audio_file, duration=4.0, quality_filter=True)
     if not mel_spectrograms:
         print("No valid segments found for inference.")
         return
@@ -331,11 +367,12 @@ def main(audio_file, model_path, lora_adapter_path, output_dir):
         print("Failed to load model. Exiting.")
         return
 
-    predictions, all_probs = predict(model, processor, mel_spectrograms, batch_size=32, return_all_probs=True)
+    predictions, all_probs = predict(model, processor, mel_spectrograms, batch_size=16, return_all_probs=True)
 
     for i, (predicted_class, confidence_score) in enumerate(predictions):
-        bird_name = labels[predicted_class]
-        print(f"Segment {i}: Predicted Class: {bird_name}, Confidence Score: {confidence_score:.4f}")
+        threshold = class_thresholds.get(predicted_class, 0.5)
+        passed = confidence_score >= threshold
+        print(f"Segment {i}: Predicted Class: {predicted_class}, Confidence Score: {confidence_score:.4f} (Threshold: {threshold:.4f}) {'✅' if passed else '❌'}")
 
     if all_probs is not None and all_probs.numel() > 0:
         mean_probs = all_probs.mean(dim=0)
@@ -352,7 +389,7 @@ def main(audio_file, model_path, lora_adapter_path, output_dir):
         print(f"Overall Prediction (log-sum): {overall_bird_name}, Confidence Score: {overall_confidence_score:.4f}")
 
 if __name__ == "__main__":
-    model_path = "./manuai_checkpoints"
+    model_path = "./vit-base-manuai"
     recordings_dir = "unknown_recordings"
     lora_adapter_path = "./manuai_lora_adapter"  # Optional: for LoRA adapter
     output_dir = "./inference_outputs"
