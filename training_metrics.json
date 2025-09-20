@@ -1,0 +1,69 @@
+{
+  "hyperparameters": {
+    "epochs": 25,
+    "batch_size": 16,
+    "learning_rate": 5e-05,
+    "model_name": "./vit-base-manuai",
+    "lora_rank": 16,
+    "seed": 42,
+    "segment_len": 4.0,
+    "image_size": 224,
+    "labels": [
+      "bellbird",
+      "fantail",
+      "kaka",
+      "morepork",
+      "robin",
+      "saddleback",
+      "silvereye",
+      "tomtit",
+      "tui",
+      "whitehead"
+    ]
+  },
+  "train_metrics": {
+    "train_runtime": 25620.2139,
+    "train_samples_per_second": 10.246,
+    "train_steps_per_second": 0.641,
+    "total_flos": 2.0484765374976e+19,
+    "train_loss": 1.5439935302734376,
+    "epoch": 25.0
+  },
+  "eval_metrics": {
+    "eval_loss": 1.375894546508789,
+    "eval_accuracy": 0.5422222222222223,
+    "eval_precision": 0.5428306210655848,
+    "eval_recall": 0.5422222222222223,
+    "eval_f1": 0.5390348236491641,
+    "eval_auc": 0.8890193883100654,
+    "eval_runtime": 145.3101,
+    "eval_samples_per_second": 15.484,
+    "eval_steps_per_second": 0.97,
+    "epoch": 25.0
+  },
+  "per_class_accuracy": {
+    "bellbird": 0.627906976744186,
+    "fantail": 0.4337899543378995,
+    "kaka": 0.45217391304347826,
+    "morepork": 0.7876106194690266,
+    "robin": 0.6652360515021459,
+    "saddleback": 0.576271186440678,
+    "silvereye": 0.6222222222222222,
+    "tomtit": 0.6285714285714286,
+    "tui": 0.2824074074074074,
+    "whitehead": 0.35
+  },
+  "classification_report": "              precision    recall  f1-score   support\n\n    bellbird       0.46      0.63      0.53       215\n     fantail       0.46      0.43      0.45       219\n        kaka       0.48      0.45      0.46       230\n    morepork       0.66      0.79      0.72       226\n       robin       0.75      0.67      0.70       233\n  saddleback       0.62      0.58      0.60       236\n   silvereye       0.70      0.62      0.66       225\n      tomtit       0.52      0.63      0.57       210\n         tui       0.31      0.28      0.30       216\n   whitehead       0.44      0.35      0.39       240\n\n    accuracy                           0.54      2250\n   macro avg       0.54      0.54      0.54      2250\nweighted avg       0.54      0.54      0.54      2250\n",
+  "best_thresholds": {
+    "bellbird": 0.3193589150905609,
+    "fantail": 0.2859371304512024,
+    "kaka": 0.20242252945899963,
+    "morepork": 0.2567889094352722,
+    "robin": 0.40264609456062317,
+    "saddleback": 0.3103640377521515,
+    "silvereye": 0.3401407301425934,
+    "tomtit": 0.2924272418022156,
+    "tui": 0.22968196868896484,
+    "whitehead": 0.19533619284629822
+  }
+}
