@@ -9,7 +9,8 @@ manuai_checkpoints/
 art/
 .vscode/
 __pycache__/
-show_weights.py
+archive/
+show_weights.py                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
 safetensors_to_nums.py
 notes.txt
 .env
@@ -17,4 +18,5 @@ notes.txt
 manuai-lora-10.zip
 inference_outputs/
 manuai_models.zip
-success-models/
+saved_models/
+new-2000-manuai.zip
