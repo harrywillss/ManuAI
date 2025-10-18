@@ -1,23 +1,86 @@
 Tui:
   - Prosthemadera novaeseelandiae
-Bellbird/Korimako:
+  - Prosthemadera novaeseelandiae novaeseelandiae
+  - Prosthemadera novaeseelandiae chathamensis
+Bellbird:
   - Anthornis melanura
-Robin/Toutouwai:
+  - Anthornis melanura melanura
+  - Anthornis melanura oneho
+  - Anthornis melanura obscura
+  - Anthornis melanura daviesi
+Robin:
   - Petroica longipes
   - Petroica australis
+  - Petroica australis australis
+  - Petroica australis rakiura
 Kaka:
   - Nestor meridionalis
   - Nestor meridionalis septentrionalis
   - Nestor meridionalis meridionalis
 Tomtit:
   - Petroica macrocephala
+  - Petroica macrocephala toitoi
+  - Petroica macrocephala macrocephala
+  - Petroica macrocephala chathamensis
+  - Petroica macrocephala dannefaerdi
+  - Petroica macrocephala marrineri
+  - Petroica macrocephala harterti
 Whitehead:
   - Mohoua albicilla
+  - Mohoua albicilla albicilla
 Morepork:
   - Ninox novaeseelandiae
-  - Ninox boobook
+  - Ninox novaeseelandiae novaeseelandiae
+  - Ninox novaeseelandiae undulata
 Saddleback:
   - Philesturnus rufusater
   - Philesturnus carunculatus
 Silvereye:
   - Zosterops lateralis
+  - Zosterops lateralis lateralis
+Fantail:
+  - Rhipidura fuliginosa
+  - Rhipidura fuliginosa placabilis
+  - Rhipidura fuliginosa fuliginosa
+  - Rhipidura fuliginosa penita
+  - Rhipidura fuliginosa cervina
+GreyWarbler:
+  - Gerygone igata
+Stitchbird:
+  - Notiomystis cincta
+Yellowhead:
+  - Mohoua ochrocephala
+Kokako:
+  - Callaeas wilsoni
+  - Callaeas cinerea
+Kereru:
+  - Hemiphaga novaeseelandiae
+  - Hemiphaga novaeseelandiae novaeseelandiae
+  - Hemiphaga novaeseelandiae spadicea
+  - Hemiphaga novaeseelandiae chathamensis
+Kea:
+  - Nestor notabilis
+  - Nestor notabilis notabilis
+Parakeet:
+  - Cyanoramphus novaezelandiae
+  - Cyanoramphus novaezelandiae novaezelandiae
+  - Cyanoramphus novaezelandiae chathamensis
+  - Cyanoramphus auriceps
+  - Cyanoramphus auriceps auriceps
+  - Cyanoramphus malherbi
+  - Cyanoramphus unicolor
+  - Cyanoramphus forbesi
+Kiwi:
+  - Apteryx mantelli
+  - Apteryx australis
+  - Apteryx owenii
+  - Apteryx rowi
+  - Apteryx haastii
+  - Apteryx australis australis
+  - Apteryx australis lawryi
+Kingfisher:
+  - Todiramphus sanctus
+  - Todiramphus sanctus vagans
+Pukeko:
+  - Porphyrio melanotus
+  - Porphyrio melanotus melanotus

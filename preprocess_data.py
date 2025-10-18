@@ -14,6 +14,7 @@ import noisereduce as nr
 from scipy.stats import kurtosis
 import gc
 os.nice(10) # makes the process "nicer" to your system (memory problems fr)
+
 class AudioProcessor:
     """Handles audio processing, and quality assessment for bird sound classification."""
     def __init__(self, data_dir="training_data", duration=3.0, save_segments=True,
@@ -33,14 +34,15 @@ class AudioProcessor:
             'min_duration': 1.0,
             'noise_gate_threshold': 0.02,
             'noise_reduce_factor': 0.6,
-            'min_snr': 14.0,
+            'min_snr': 12.0,
             'max_silence_ratio': 0.5,
             'min_spectral_centroid': 500,
             'max_spectral_centroid': 8000,
             'max_zcr': 0.3,
-            'quality_pass_score': 65,
+            'quality_pass_score': 60,
             'time_constant_s': 0.3, # 300ms for short bird calls
         }
+        self.file_name_strip = ["new_zealand_", "south_island_", "north_island_", "australasian_", "little_spotted_", "grey_", "brown_", "southern_"]
    
     def apply_noise_reduction(self, y, sr, noise_reduce_factor=0.6, n_fft=2048, hop_length=512, time_constant_s=0.3):
         """
@@ -197,13 +199,13 @@ class AudioProcessor:
         """Save a single audio segment to the segments directory."""
         sanitized_file = file.lower().replace("new_zealand_", "").replace("south_island_", "").replace("north_island_", "")
         parts = sanitized_file[:-4].split('_')
-        if len(parts) < 4:
+        if len(parts) < 3:
             print(f"⚠️ Invalid filename format: {file}")
             english_name = "unknown"
             scientific_name = "unknown"
         else:
             english_name = parts[1] # e.g., 'tui'
-            scientific_name = f"{parts[2]}_{parts[3]}" # e.g., 'prosthemadera_novaeseelandiae'
+            scientific_name = '_'.join(parts[2:]) # e.g., 'prosthemadera_novaeseelandiae', 'prosthemadera_novaeseelandiae_melanops'
         segment_folder = os.path.join(segments_dir, english_name)
         os.makedirs(segment_folder, exist_ok=True)
         segment_filename = f"{file[:-4]}_segment_{index}.wav"
@@ -251,12 +253,12 @@ class AudioProcessor:
                         if snr < 15:
                             audio = self.apply_noise_reduction(audio, sr)
                     parts = file[:-4].split('_')
-                    if len(parts) < 4:
+                    if len(parts) < 3:
                         tqdm.write(f"⚠️ Invalid filename format: {file}")
                         pbar.update(1)
                         continue
                     english_name = parts[1]
-                    scientific_name = f"{parts[2]}_{parts[3]}"
+                    scientific_name = '_'.join(parts[2:])
                     segment_count = 0
                     for clip in self._segment_audio(audio, sr, chunk_size, hop_size):
                         if save_segments:
@@ -395,7 +397,7 @@ class AudioProcessor:
                 try:
                     sanitized_file = filename.lower().replace("new_zealand_", "").replace("south_island_", "").replace("north_island_", "")
                     parts = sanitized_file[:-4].split('_')
-                    if len(parts) < 4:
+                    if len(parts) < 3:
                         tqdm.write(f"❌ Filename format not recognized: {sanitized_file}")
                         stats["failed"] += 1
                         pbar.update(1)
@@ -403,7 +405,7 @@ class AudioProcessor:
                     file_id = parts[0]
                     english_name = parts[1]
                     genus = parts[2]
-                    species = parts[3]
+                    species = '_'.join(parts[3:])  # since no call, scientific is genus_species...
                     if os.path.getsize(path) == 0:
                         tqdm.write(f"⚠️ Skipping empty file: {sanitized_file}")
                         stats["skipped"] += 1
@@ -451,7 +453,7 @@ def main():
     if dev_mode:
         print("🔧 DEV MODE: Loading limited data for quick testing")
     n_proc = 1 # Number of processors to use throughout
-    duration = 3.0
+    duration = 4.0
    
     processor = AudioProcessor(
         dev_mode=dev_mode,

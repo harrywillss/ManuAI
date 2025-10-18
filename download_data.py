@@ -38,6 +38,11 @@ class BirdRecordingDownloader:
         self.quality = quality or self.CONFIG["default_quality"]
         self.output_dir = output_dir or self.CONFIG["output_dir"]
         self.bird_types = bird_types or {}
+        self.scientific_to_english = {}
+        if self.bird_types:
+            for eng, sciences in self.bird_types.items():
+                for sci in sciences:
+                    self.scientific_to_english[sci.lower()] = eng.lower()
         self.api_key = os.getenv("XC_API_KEY")
         if not self.api_key:
             raise ValueError("API key not found. Set XC_API_KEY in .env file.")
@@ -110,7 +115,10 @@ class BirdRecordingDownloader:
                 return None
             file_id, file_url = rec["id"], rec["file"]
             en = self._sanitize(rec.get("en", "unknown")).replace("north_island_", "").replace("south_island_", "").replace("new_zealand_", "")
-            filename = f"{file_id}_{en}_{self._sanitize(rec.get('gen', 'unknown'))}_{self._sanitize(rec.get('sp', 'unknown'))}_{self._sanitize(rec.get('type', 'call'))}.wav"
+            genus_species = f"{rec.get('gen', '')} {rec.get('sp', '')}".strip()
+            if genus_species and genus_species.lower() in self.scientific_to_english:
+                en = self.scientific_to_english[genus_species.lower()]
+            filename = f"{file_id}_{en}_{self._sanitize(rec.get('gen', 'unknown'))}_{self._sanitize(rec.get('sp', 'unknown'))}.wav"
             filepath = os.path.join(self.output_dir, filename)
             if os.path.exists(filepath):
                 return filepath
@@ -125,7 +133,7 @@ class BirdRecordingDownloader:
                         if ext != ".wav":
                             self._convert_to_wav_ffmpeg(temp_path, filepath)
                             os.remove(temp_path)
-                        print(f"✅ Saved: {filename}")
+                        #print(f"✅ Saved: {filename}")
                         return filepath
                 except Exception as e:
                     print(f"❌ Error downloading {file_id} (attempt {attempt + 1}): {e}")
@@ -212,19 +220,21 @@ class BirdRecordingDownloader:
             if ebird_name not in ebird_to_info:
                 return None
             scientific_name, common_name = ebird_to_info[ebird_name]
+            if scientific_name.lower() in self.scientific_to_english:
+                common_name = self.scientific_to_english[scientific_name.lower()]
             parts = scientific_name.split()
             genus = parts[0] if len(parts) > 0 else "unknown"
             species = parts[1] if len(parts) > 1 else "unknown"
             common_name_clean = self._sanitize(common_name)
             genus_clean = self._sanitize(genus)
             species_clean = self._sanitize(species)
-            filename = f"{file_id}_{common_name_clean}_{genus_clean}_{species_clean}_call.wav"
+            filename = f"{file_id}_{common_name_clean}_{genus_clean}_{species_clean}.wav"
             filepath = Path(self.output_dir) / filename
             if filepath.exists():
                 return str(filepath)
             try:
                 self._convert_to_wav_ffmpeg(str(flac_path), str(filepath))
-                print(f"✅ Saved: {filename}")
+                #print(f"✅ Saved: {filename}")
                 return str(filepath)
             except Exception as e:
                 print(f"❌ Error converting {flac_path}: {e}")
@@ -254,7 +264,6 @@ class BirdRecordingDownloader:
                 "length": self._parse_length(rec.get("length", "0:00")),
                 "license": rec.get("lic", "unknown").replace(" ", "_"),
                 "location": rec.get("loc", "unknown").replace(" ", "_"),
-                "bird_type": rec.get("type", "call").replace(" ", "_").replace("/", "_"),
                 "also": rec.get("also", []),
                 "smp": rec.get("smp", "unknown"),
                 "seen": rec.get("animal-seen", "unknown"),
@@ -285,13 +294,16 @@ class BirdRecordingDownloader:
                     if naming_row.empty:
                         continue
                     common_name = naming_row.iloc[0]['CommonName']
+                    scientific_name_full = naming_row.iloc[0]['ScientificName']
+                    if scientific_name_full.lower() in self.scientific_to_english:
+                        common_name = self.scientific_to_english[scientific_name_full.lower()]
                     scientific_name = naming_row.iloc[0]['ScientificName'].split()
                     genus = scientific_name[0] if len(scientific_name) > 0 else "unknown"
                     species = scientific_name[1] if len(scientific_name) > 1 else "unknown"
                     for flac_file in species_dir.glob("*.flac"):
                         file_id = str(file_id_counter)
                         file_id_counter += 1
-                        filename = f"{file_id}_{self._sanitize(common_name)}_{self._sanitize(genus)}_{self._sanitize(species)}_call.wav"
+                        filename = f"{file_id}_{self._sanitize(common_name)}_{self._sanitize(genus)}_{self._sanitize(species)}.wav"
                         filepath = Path(self.output_dir) / filename
                         data.append({
                             "id": file_id,
@@ -304,7 +316,6 @@ class BirdRecordingDownloader:
                             "length": self._get_audio_duration(str(flac_file)),
                             "license": "unknown",
                             "location": source,
-                            "bird_type": "call",
                             "also": [],
                             "smp": "32000",
                             "seen": "unknown",
@@ -376,6 +387,7 @@ class BirdRecordingDownloader:
         xeno_recordings = []
         kaggle_path = ""
         naming_map = pd.DataFrame()
+        max_workers = self.CONFIG["max_workers"]
 
         # Option to load Xeno-Canto recordings
         if input("Load Xeno-Canto recordings? (y/n): ").strip().lower() == 'y':
@@ -388,26 +400,23 @@ class BirdRecordingDownloader:
 
         # Option to process Kaggle dataset recordings
         if input("Process Kaggle dataset recordings? (y/n): ").strip().lower() == 'y':
-            kaggle_path = input("Enter path to Kaggle dataset directory: ").strip()
+            kaggle_path = "archive"  # Default path; change if needed
             if not os.path.exists(kaggle_path):
                 print(f"❌ Kaggle dataset directory does not exist: {kaggle_path}")
             else:
                 use_parallel = input("Use parallel processing for Kaggle dataset? (y/n): ").strip().lower() == 'y'
                 max_workers = self.CONFIG["max_workers"] if use_parallel else 1
                 downloaded, naming_map = self.process_kaggle_recordings(kaggle_path, max_workers)
-                kaggle_filtered = self.filter_recordings(self._prepare_kaggle_data(kaggle_path, naming_map).to_dict('records'), source="Kaggle")
         else:
             kaggle_filtered = []
 
         # Save combined metadata and report summary
         self.save_metadata(xeno_filtered, kaggle_path, naming_map)
         self.report_summary(xeno_filtered, kaggle_path, naming_map)
-
         print("✅ Bird Recording Downloader finished.")
 
 def main():
     """Main function to run the downloader."""
-    print("🐦 Starting Bird Recording Downloader...")
     with open("bird_types.yaml", "r") as f:
         bird_types = yaml.safe_load(f)
     downloader = BirdRecordingDownloader(bird_types=bird_types)

@@ -23,7 +23,7 @@ Key takeaway: Visually classifying sound --> seeing sounds...
 Follow these steps to train and use ManuAI:
 
 1. **Download Data**
-   - Run `download_data.py` to fetch New Zealand bird recordings from Xeno-canto.
+   - Run `download_data.py` to fetch New Zealand bird recordings from Xeno-canto and Kaggle.
    - Example:
      ```bash
      python download_data.py
@@ -50,7 +50,7 @@ See each script/notebook for additional options and configuration details.
 
 ## 📊 Dataset
 
-The project uses bird recordings from [Xeno-canto](https://xeno-canto.org/), a citizen science project focused on sharing bird sounds from around the world.
+The project uses bird recordings from [Xeno-canto](https://xeno-canto.org/), a citizen science project focused on sharing bird sounds from around the world, as well as the ['New Zealand Bird Sound' Kaggle dataset](https://www.kaggle.com/datasets/ollypowell/new-zealand-bird-sound/data?select=DOC_001_Tier1) 
 
 ### Data Processing Pipeline
 
