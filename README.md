@@ -54,7 +54,7 @@ The project uses bird recordings from [Xeno-canto](https://xeno-canto.org/), a c
 
 ### Data Processing Pipeline
 
-1. **Download**: Fetches New Zealand bird recordings via Xeno-canto API
+1. **Download**: Fetches New Zealand bird recordings via Xeno-canto API and Kaggle.
 2. **Segmentation**: Splits recordings into 4-second segments
 3. **Quality Filtering**: Removes low-quality or silent segments
 4. **Spectrogram Conversion**: Converts audio to mel spectrograms
@@ -62,7 +62,7 @@ The project uses bird recordings from [Xeno-canto](https://xeno-canto.org/), a c
 
 ### Supported Bird Species
 
-The model currently supports classification of 10 New Zealand bird species including:
+The model currently supports classification of 20 New Zealand bird species including:
 - Tui (*Prosthemadera novaeseelandiae*)
 - Bellbird (*Anthornis melanura*)
 - Kaka (*Nestor meridionalis*)
@@ -83,17 +83,6 @@ The model currently supports classification of 10 New Zealand bird species inclu
 - **Early Stopping**: Prevents overfitting
 - **Learning Rate Scheduling**: Warmup and decay
 - **Mixed Precision**: Optional FP16 training
-
-## 📈 Performance
-
-The model achieves competitive performance on New Zealand bird sound classification:
-
-- **Validation Accuracy**: ~96.2%
-- **F1 Score**: ~96.2%
-- **Precision & Recall**: ~96.2%
-- **AUC**: ~99.8%
-- **Model Size**: ~22MB (LoRA adapter only)
-- **Inference Time**: <100ms per sample
 
 ## 🤝 Contributing
 
