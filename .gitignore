@@ -21,3 +21,6 @@ manuai_models.zip
 saved_models/
 new-2000-manuai.zip
 for_final.md
+ast-base-manuai/
+ast-manuai-lora-adapters/
+ast-manuai-checkpoints/

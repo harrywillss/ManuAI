@@ -132,10 +132,10 @@ class AudioProcessor:
                 quality_score += 15
             else:
                 reasons.append(f"Low kurtosis: {kurt:.1f} (lacks bursts)")
-            # Adjust total possible to 110, pass if >=75 (recalibrate)
+            # Adjust total possible to 110, pass if >=70 (recalibrate)
             return {
                 "quality_score": quality_score,
-                "pass": quality_score >= 75,
+                "pass": quality_score >= 70,
                 "reasons": reasons
             }
         except Exception as e:
@@ -195,6 +195,7 @@ class AudioProcessor:
                         yield chunk
                 else:
                     yield chunk
+
     def _save_segment(self, clip, segments_dir, root, file, index, sr):
         """Save a single audio segment to the segments directory."""
         sanitized_file = file.lower().replace("new_zealand_", "").replace("south_island_", "").replace("north_island_", "")
@@ -210,6 +211,7 @@ class AudioProcessor:
         os.makedirs(segment_folder, exist_ok=True)
         segment_filename = f"{file[:-4]}_segment_{index}.wav"
         sf.write(os.path.join(segment_folder, segment_filename), clip, sr)
+
     def load_audio_data(self, data_dir=None, save_segments=None, segments_dir=None):
         """Load and process audio data, returning clips/paths and labels."""
         data_dir = data_dir or self.data_dir
@@ -286,6 +288,7 @@ class AudioProcessor:
         if self.use_quality_filter:
             print(f" 🔍 Quality filtering was enabled - cleaner segments should result in better spectrograms")
         return segment_data, labels
+    
     def _discover_segments(self, segments_dir):
         """Discover existing segments, applying dev mode limits if enabled."""
         all_files = []
@@ -303,6 +306,7 @@ class AudioProcessor:
                     species_counts[label] += 1
                 all_files.append((file_path, file, label))
         return all_files
+    
     def load_existing_segments(self, segments_dir=None):
         """Load existing audio segments from the segments directory (paths only)."""
         segments_dir = segments_dir or self.segments_dir
