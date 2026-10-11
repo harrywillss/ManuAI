@@ -1,0 +1,28 @@
+# ManūAI v2 — pinned from the working `ManuAI` conda env (Python 3.11.13, macOS arm64), Oct 2026.
+# Full snapshot: data/logs/pip-freeze.txt (not committed).
+torch==2.8.0
+torchaudio==2.8.0
+transformers==4.55.4
+peft==0.17.0
+accelerate==1.9.0
+safetensors==0.5.3
+numpy==2.1.3
+pandas==2.3.1
+scikit-learn==1.7.2
+soundfile==0.13.1
+PyYAML==6.0.2
+tensorboard==2.19.0
+tqdm==4.67.1
+
+# Used by the v1 scripts and the older notebooks
+datasets==4.0.0
+evaluate==0.4.5
+librosa==0.11.0
+noisereduce==3.0.3
+scipy==1.16.1
+opencv-python==4.13.0.92
+matplotlib==3.10.3
+seaborn==0.13.2
+python-dotenv==1.1.1
+requests==2.32.4
+kagglehub==1.0.0

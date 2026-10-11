@@ -1,131 +1,110 @@
-# ManuAI 🦜 - New Zealand Bird Sound Classification
+# ManūAI 🦜 — New Zealand bird sound classification
 
-A machine learning project that classifies New Zealand bird sounds using Vision Transformer (ViT) models fine-tuned with LoRA (Low-Rank Adaptation) on mel spectrogram representations of audio recordings.
+ManūAI identifies New Zealand birds from their calls. (*Manu* is te reo Māori for "bird".) Audio is cut into 5-second segments and turned into log-mel spectrograms. A pretrained transformer, fine-tuned with LoRA, then predicts the species.
 
-## 🎯 Project Overview
+The long-term goal is a phone app that works **offline in the bush**: hold up the phone, record a bird, and get the species back.
 
-ManuAI transforms bird audio recordings into mel spectrograms and uses computer vision techniques to classify different New Zealand bird species. The project leverages the unique approach of treating audio classification as an image classification problem, using Google's Vision Transformer (ViT) model fine-tuned with LoRA for efficient training.
+> **Status (Oct 2026).** The v2 pipeline lives in the `manuai/` package. It has been smoke-tested on an M1 Pro (MPS). The first full training run is pending. The capstone (v1) is kept as a frozen reference; see the bottom of this page.
 
-Key takeaway: Visually classifying sound --> seeing sounds...
+## Classes
 
-### Key Features
+There are 20 classes plus `Other` (any identified species not in the list). They are defined in [`types.yaml`](types.yaml):
 
-- **Audio-to-Image Conversion**: Converts bird audio recordings to mel spectrograms for visual processing
-- **LoRA Fine-tuning**: Efficient parameter-efficient fine-tuning of pre-trained ViT models
-- **Class Imbalance Handling**: Implements augmentation to handle imbalanced datasets
-- **Automated Data Pipeline**: Complete pipeline from data download to model training
-- **Early Stopping**: Prevents overfitting with configurable early stopping callbacks
+tūī · korimako/Bellbird · pīwakawaka/Fantail · riroriro/Grey Warbler · tauhou/Silvereye · miromiro/Tomtit · toutouwai/Robin · tītitipounamu/Rifleman · kākā · kea · ruru/Morepork · kiwi (all species) · weka · pūkeko · koekoeā/Long-tailed Cuckoo · pīpīwharauroa/Shining Cuckoo · kōtare/Kingfisher · Blackbird · Chaffinch · Song Thrush
 
-## 🚀 Getting Started
+The selection is data-driven: every class has enough independent recordings to be tested on unseen sites. Rarer birds (kōkako, tīeke, hihi, kererū, kākāriki, …) are folded into `Other` until there is more data.
 
-## 🧑‍💻 How to Use
+## Data
 
-Follow these steps to train and use ManuAI:
+The data is the [New Zealand Bird Sound](https://www.kaggle.com/datasets/ollypowell/new-zealand-bird-sound) Kaggle dataset, unzipped into `archive/`:
 
-1. **Download Data**
-   - Run `download_data.py` to fetch New Zealand bird recordings from Xeno-canto and Kaggle.
-   - Example:
-     ```bash
-     python download_data.py
-     ```
+| Source | Contents |
+|---|---|
+| DOC_001_Tier1 | DOC acoustic recorder clips from about 1,200 recorders across NZ |
+| DOC_002_DuncanBayParinga | DOC field recordings from one South Westland area |
+| DOC_003_XenoCanto | Xeno-canto clips |
 
-2. **Preprocess Data**
-   - Run `preprocess_data.py` to segment and convert audio files into mel spectrograms.
-   - Example:
-     ```bash
-     python preprocess_data.py
-     ```
+In total there are about 271k FLAC clips at 32 kHz (43 GB).
 
-3. **Fine-tune the Model**
-   - Open and run all cells in `lora-finetune.ipynb` to fine-tune the Vision Transformer model using LoRA.
+## Pipeline (v2)
 
-4. **Run Inference**
-   - Use `inference.py` to classify new bird audio samples.
-   - Example:
-   ```bash
-   python inference.py
-   ```
-   
-See each script/notebook for additional options and configuration details.
+```bash
+conda activate ManuAI
+pip install -r requirements.txt            # if setting up a fresh env
 
-## 📊 Dataset
+python -m manuai.build_index               # archive metadata → data/index.csv + grouped split
+python -m manuai.preprocess                # → data/features/ (float16 cache, ~34 GB)
+python -m manuai.train --model ast --run-name ast-v2-1   # AST + LoRA (primary)
+python -m manuai.train --model vit --run-name vit-v2-1   # ViT + LoRA (baseline)
+python -m manuai.evaluate --run models/finetuned/ast-v2-1 --splits test
+python -m manuai.infer --run models/finetuned/ast-v2-1 my_recording.wav
+python -m manuai.report --run models/finetuned/ast-v2-1   # → REPORT.md
+```
 
-The project uses bird recordings from [Xeno-canto](https://xeno-canto.org/), a citizen science project focused on sharing bird sounds from around the world, as well as the ['New Zealand Bird Sound' Kaggle dataset](https://www.kaggle.com/datasets/ollypowell/new-zealand-bird-sound/data?select=DOC_001_Tier1) 
+**Notebooks:** `01_data.ipynb` covers the data, split, spectrograms and audio, and builds the caches. `02_train.ipynb` trains and plots runs. `03_evaluate.ipynb` shows the report, confusion matrix and mistakes (with audio playback) and lets you try any audio file. They drive the same package, and their heavy cells are behind flags.
 
-### Data Processing Pipeline
+`ManuAI.config` sets `data_directory` (default `data`, relative to the repo). Smoke-test a change on a small balanced subset first:
 
-1. **Download**: Fetches New Zealand bird recordings via Xeno-canto API and Kaggle.
-2. **Segmentation**: Splits recordings into 4-second segments
-3. **Quality Filtering**: Removes low-quality or silent segments
-4. **Spectrogram Conversion**: Converts audio to mel spectrograms
-5. **Augmentation**: Applies data augmentation techniques
+```bash
+python -m manuai.preprocess --name features_smoke --per-class 200 --per-class-eval 40
+python -m manuai.train --model ast --smoke --features features_smoke
+```
 
-### Supported Bird Species
+Run the fast invariant tests with `python -m pytest -q tests/`. They cover feature parity with `ASTFeatureExtractor`, segmenting, labels, and the absence of split leakage.
 
-The model currently supports classification of 20 New Zealand bird species including:
-- Tui (*Prosthemadera novaeseelandiae*)
-- Bellbird (*Anthornis melanura*)
-- Kaka (*Nestor meridionalis*)
-- Robin (*Petroica* species)
-- Morepork (*Ninox novaeseelandiae*)
-- Fantail (*Rhipidura fuliginosa*)
-- And many more...
+To stop a running training job gracefully, `touch data/logs/STOP`. The best checkpoint is kept, and the final evaluation can be run later with `manuai.evaluate`.
 
-## 🤖 Model Architecture
+### What each step does
 
-### Base Model
-- **Google ViT-Base-Patch16-224**: Pre-trained Vision Transformer
-- **Input Size**: 224x224 RGB images (mel spectrograms)
-- **Patch Size**: 16x16 pixels
+| Module | |
+|---|---|
+| `manuai/labels.py` | `types.yaml` → classes. Every other identified species becomes `Other`. Unidentified labels (`parake` = *Psittaciformes sp.*, `badbird`) are dropped. |
+| `manuai/build_index.py` | Builds one row per clip, with its recording and group. The split is a `StratifiedGroupKFold` (7 folds, seed 21): **no recorder (DOC_001), field recording (DOC_002) or Xeno-canto recording appears in more than one split.** The result is ≈ 71 / 16 / 13 % train/val/test. |
+| `manuai/features.py` | **The one feature definition**, used by training, evaluation and the app: 16 kHz mono, 5 s segments (short clips are looped, not zero-padded), Kaldi fbank exactly as HF `ASTFeatureExtractor` (128 mel, 10 ms hop), AudioSet normalisation → 498 × 128. |
+| `manuai/preprocess.py` | Computes the features into a float16 memmap per split, plus a segment table. |
+| `manuai/data.py` | √-frequency class sampling with a per-recording cap, SpecAugment and time-roll, and collate functions for AST and ViT. |
+| `manuai/models.py` | **AST** (`MIT/ast-finetuned-audioset-10-10-0.4593`) at 512 frames, with its pretrained position embeddings centre-cropped. **ViT** (`google/vit-base-patch16-224-in21k`). LoRA r=16 on every encoder linear layer, with the classifier trained in full. |
+| `manuai/train.py` | Plain cross-entropy (label smoothing 0.1, no class weights). "Virtual epochs" of sampled segments. Checkpoints are selected on macro-F1. Writes `training_metrics.json`. |
+| `manuai/evaluate.py`, `metrics.py` | Macro-F1 (primary), accuracy, balanced accuracy and macro AUC, at **segment and recording level**, plus per-class reports and a confusion matrix. |
+| `manuai/inference.py`, `infer.py` | Load a run and classify audio files. This is the basis for the app. |
 
-### Training Features
-- **Class Weighting**: Handles imbalanced datasets
-- **Early Stopping**: Prevents overfitting
-- **Learning Rate Scheduling**: Warmup and decay
-- **Mixed Precision**: Optional FP16 training
+Base checkpoints are loaded from `models/base/{mit-ast,google-vit}`, so training works offline. Runs are written to `models/finetuned/<run-name>/`.
 
-## 🤝 Contributing
+### Hardware notes (M1 Pro, 16 GB)
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+- AST at 512 frames, batch 8 × 4 accumulation: about **6 s per optimizer step** and about 10–11 GB of MPS memory (Oct 2026 smoke test).
+- fp16/bf16 stay off on MPS.
+- DataLoader workers work, because all collate code lives in the package.
+- The full feature cache takes about 34 GB of disk.
 
-### Development Setup
+## Capstone (v1) — frozen reference
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+ManūAI started as Harry Wills's AIML339 capstone at Victoria University of Wellington (2025, supervised by Prof. W. Bastiaan Kleijn). v1 fine-tuned ViT on librosa log-mel images of 4 s segments. Its headline result was **72.6 % accuracy, macro-F1 ≈ 0.73, AUC 0.97** on 20 species.
 
-## 📝 License
+That split was made per segment, so segments from the same recording appeared in both training and test. The v1 figure is therefore optimistic and **not comparable** with v2's grouped split. The v1 code (`download_data.py`, `preprocess_data.py`, `inference.py`, `bird_types.yaml`, the HEAD version of `finetune.ipynb`) and the `saved_models/` deliverables are kept unchanged.
 
-This project is licensed under the MIT License.
+The v2 notebooks (`data_download.ipynb`, `preprocess_data.ipynb`, `finetune.ipynb`, `ast_finetune.ipynb`) were the first v2 attempt (Mar 2026). They are kept as legacy. The numbered notebooks plus the `manuai/` package replace them.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- [Xeno-canto](https://xeno-canto.org/) for providing the bird sound database
-- [Hugging Face](https://huggingface.co/) for the Transformers library and model hosting
-- [Google Research](https://github.com/google-research/vision_transformer) for the Vision Transformer architecture
-- Microsoft for the LoRA (Low-Rank Adaptation) technique
+- The Department of Conservation and the Kaggle dataset curator, for the acoustic recorder data
+- [Xeno-canto](https://xeno-canto.org/) recordists
+- [Hugging Face](https://huggingface.co/) Transformers and PEFT
+- Gong, Chung & Glass — *AST: Audio Spectrogram Transformer* (2021)
 
-## 📚 Citation
-
-If you use this project in your research, please cite:
+## Citation
 
 ```bibtex
 @misc{manuai2025,
-  title={ManuAI: New Zealand Bird Sound Classification using Vision Transformers},
+  title={ManuAI: New Zealand Bird Sound Classification},
   author={Harry Wills},
   year={2025},
   url={https://github.com/harrywillss/ManuAI}
 }
 ```
 
-## 📞 Contact
+## Contact
 
-Harry Wills - [@harrywillss](https://github.com/harrywillss)
+Harry Wills — [@harrywillss](https://github.com/harrywillss)
 
-Project Link: [https://github.com/harrywillss/ManuAI](https://github.com/harrywillss/ManuAI)
-
----
-
-*Made with ❤️ for New Zealand's native bird conservation*
+*Made with ❤️ for Aotearoa's birds.*
