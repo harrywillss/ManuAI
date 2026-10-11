@@ -390,7 +390,7 @@ class BirdRecordingDownloader:
         max_workers = self.CONFIG["max_workers"]
 
         # Option to load Xeno-Canto recordings
-        if input("Load Xeno-Canto recordings? (y/n): ").strip().lower() == 'y':
+        if input("Download Xeno-Canto recordings? (y/n): ").strip().lower() == 'y':
             xeno_recordings = self.fetch_data()
             print(f"Total Xeno-Canto recordings fetched: {len(xeno_recordings)}")
             xeno_filtered = self.filter_recordings(xeno_recordings, source="Xeno-Canto")
