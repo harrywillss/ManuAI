@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "manuai"
+version = "2.1.0"
+description = "ManūAI — New Zealand bird sound classification (AST/ViT + LoRA on Kaldi fbank features)"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Harry Wills" }]
+# Exact pins for the Mac env live in requirements.txt
+dependencies = [
+    "torch>=2.4",
+    "torchaudio>=2.4",
+    "transformers>=4.45",
+    "peft>=0.13",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "soundfile",
+    "pyyaml",
+    "tensorboard",
+]
+
+[project.optional-dependencies]
+notebooks = ["matplotlib", "ipykernel"]
+dev = ["pytest"]
+
+[project.urls]
+Repository = "https://github.com/harrywillss/ManuAI"
+
+[tool.setuptools]
+packages = ["manuai"]

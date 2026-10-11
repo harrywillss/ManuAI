@@ -29,7 +29,7 @@ Audio is converted to log-mel (Kaldi fbank) features and passed to a pretrained 
 
 There are three generations side by side:
 
-- **v2.1 is canonical.** Reusable logic lives in the `manuai/` package. Harry likes notebooks for ML and data work, so the numbered notebooks (`01_data`, `02_train`, `03_evaluate`) are the interactive front end over the package. Use and extend them freely.
+- **v2.1 is canonical.** Reusable logic lives in the `manuai/` package. Harry likes notebooks for ML and data work, so the numbered notebooks in `notebooks/` (`01_data`, `02_train`, `03_evaluate`) are the interactive front end over the package. Use and extend them freely.
 - The Mar 2026 v2 notebooks are superseded.
 - v1 is the frozen capstone reference.
 
@@ -51,7 +51,7 @@ Run each step from the repo root with `python -m manuai.<module>` (see README):
 | `report.py` | `training_metrics.json` → `REPORT.md` with headline numbers, per-class F1 and top confusions. The overnight job runs it automatically. |
 | `inference.py`, `infer.py` | `load_run` (prefers `merged/`, else base + `adapter/`), `predict_file`. CLI: `python -m manuai.infer --run <dir> file.wav`. |
 
-Notebooks (repo root). Each one imports `manuai` and has `%autoreload` on. Heavy cells are guarded by flags (`BUILD_FULL`, `TRAIN`, `EVALUATE`) so *Run All* is safe in the daytime:
+Notebooks (`notebooks/`). Each one finds the repo root, imports `manuai` and has `%autoreload` on. Heavy cells are guarded by flags (`BUILD_FULL`, `TRAIN`, `EVALUATE`) so *Run All* is safe in the daytime:
 
 | Notebook | Purpose |
 |---|---|
@@ -67,6 +67,9 @@ Other v2.1 files:
 - `requirements.txt`: pins from the real env.
 - `tests/test_pipeline.py`: invariant tests (`python -m pytest -q tests/`). Run them after touching `features.py`, `labels.py` or the split.
 - `scripts/agent_runner.ipynb` + `scripts/agent_job.sh`: how agents run jobs on the Mac (§10).
+- `scripts/fetch_base_models.py`: downloads pretrained checkpoints into `models/base/<name>/`, with `SOURCE.json` recording the exact revision. **New base models always go here.** Add them to its `REGISTRY`.
+- `pyproject.toml` (`pip install -e .`).
+- `docs/ci/tests.yml`: a GitHub Actions workflow that runs `pytest` on CPU. Harry enables it by copying it to `.github/workflows/`. Agents can't write `.github/workflows/` through the device bridge.
 
 Each run in `models/finetuned/<run>/` contains:
 
@@ -78,7 +81,7 @@ Each run in `models/finetuned/<run>/` contains:
 - `manuai_model.json` (classes, feature spec, input length): everything an app needs
 - `training_metrics.json`
 
-### v2 (Mar 2026) notebooks: legacy, kept for reference
+### v2 (Mar 2026) notebooks: legacy, kept for reference (`notebooks/legacy/`)
 
 - `data_download.ipynb`
 - `preprocess_data.ipynb`: 4 s, padded to 1024, per-file split
@@ -88,16 +91,16 @@ Each run in `models/finetuned/<run>/` contains:
 
 Their failure modes are recorded in §7. Don't build on their code. New notebook work goes in the numbered notebooks, on top of `manuai/`.
 
-### v1: frozen capstone reference (Aug–Oct 2025)
+### v1: frozen capstone reference (Aug–Oct 2025), in `legacy/v1/`
 
-- `download_data.py`, `preprocess_data.py`, `inference.py` and `bird_types.yaml` (the v1 class list) make up the v1 code.
-- The committed (HEAD) `finetune.ipynb` is the v1 training notebook.
+- `download_data.py`, `preprocess_data.py`, `inference.py` and `bird_types.yaml` (the v1 class list) make up the v1 code. They expect to run from `legacy/v1/`.
+- The git tag **`v1-capstone`** marks the repo exactly as submitted, and its `finetune.ipynb` is the v1 training notebook.
 - v1 used:
   - 22.05 kHz librosa log-mel at 224²
   - 4 s windows with 50 % overlap
   - an **80/10/10 split per segment**, which leaks
 - `saved_models/` holds the v1 deliverables. `reports/` holds the submitted coursework: **do not edit it.**
-- **Headline capstone result to cite: 72.6 % accuracy, macro-F1 ≈ 0.73, AUC 0.97.** This is the 20-species model from `training_metrics.json` at the repo root. Because of the leaky split it is **not comparable** to v2 numbers.
+- **Headline capstone result to cite: 72.6 % accuracy, macro-F1 ≈ 0.73, AUC 0.97.** This is the 20-species model from `legacy/v1/training_metrics.json`. Because of the leaky split it is **not comparable** to v2 numbers.
 - Don't modify v1 files unless asked.
 
 ### Other contents
@@ -110,8 +113,8 @@ Their failure modes are recorded in §7. Don't build on their code. New notebook
   That is 271,365 FLAC files at 32 kHz (43 GB). **Read-only.** Each source has `*_metadata.csv` and `bird_naming_map.csv`. Files are 8 folders deep below Desktop, which is too deep for the device staging tool, so copy samples to `data/tmp_samples/` if you need them elsewhere.
 - `models/base/{mit-ast,google-vit}`: local HF checkpoints (offline training).
 - `art/`: a weights poster. It's a side project, so leave it alone.
-- `brainstorm.md` and `for_final.md` are Harry's notes.
-- **Ignored by git:** `archive/`, `models/`, `saved_models/`, `data/`, `reports/`, `art/`, `.env`, `__pycache__/`, `.DS_Store`, `.vscode/`, zips.
+- `docs/brainstorm.md` and `docs/for_final.md` are Harry's notes. `legacy/art/show_weights.py` belongs to the poster project.
+- **Ignored by git:** `archive/`, `models/`, `saved_models/`, `data/`, `reports/`, `art/`, `spectrograms/`, `.env`, `.claude/`, `__pycache__/`, `.DS_Store`, `.vscode/`, zips.
 
 ---
 
@@ -203,13 +206,18 @@ Check whether an item has been fixed before changing anything listed here, and k
 6. ✅ **The README is rewritten for v2.1.**
 7. ✅ **Checkpoints are selected on macro-F1.**
 8. **`preprocess_data.py` (v1) is destructive** (it `rmtree`s its outputs). Don't run it.
-9. **Repo hygiene is still open.**
-   - v2 and v2.1 work isn't committed. Branch `clean-main`; Harry had files staged on 11 Oct, so **ask before committing**.
-   - Tracked `__pycache__/*.pyc` and `.DS_Store`.
-   - Duplicate model zips (≈ 1.6 GB).
-   - Two YAML class lists.
-   - A `.gitignore` line padded with spaces.
-   - `data/tmp_samples/` and `models/finetuned/smoke-*` are disposable.
+9. ✅ **The repo was tidied on 12 Oct 2026 without deleting anything.**
+   - All work is committed.
+   - `clean-main` (the Dec 2025 fresh restart) was merged into `main` with `--allow-unrelated-histories -s ours`, so the capstone history is kept underneath.
+   - Tags: `v1-capstone` (as submitted) and `backup/clean-main-before-v2-20261012`.
+   - Clutter is untracked but kept on disk.
+   - Folders were reorganised with pure renames.
+   - **Harry is very protective of the capstone: don't delete files, branches or history. Ask first.**
+   - Still open:
+     - duplicate model zips (≈ 1.6 GB on disk, ignored)
+     - two YAML class lists (`types.yaml` is canonical, `legacy/v1/bird_types.yaml` is v1)
+     - the remote `clean-main` branch can be retired once Harry is happy
+     - disposable `data/tmp_samples/` and `models/finetuned/smoke-*`
 10. **Evaluation through `Trainer` is slow on MPS** (about 5–6 AST segments/s in the smoke test). `manuai.evaluate` uses a plain inference loop. Measure its throughput on the first full test eval.
 11. **Open modelling questions** for after the baseline:
     - mixup / background-noise mixing
@@ -269,7 +277,9 @@ Agent shells on the Mac are a Linux VM: no MPS, no torch. Terminal and VS Code o
   - estimate time and disk
   - log to a file
 - ✅ **May edit code and notebooks.** Don't change a notebook's kernel name.
-- ✅ **May create git commits** on a feature branch with clear messages. **Never push, force-push, rebase shared branches or rewrite history without asking.** Check `git status` first, because Harry may have work staged.
+- ✅ **May create git commits** on a feature branch with clear messages. **Never push, force-push, rebase shared branches, delete branches or rewrite history without asking.** Check `git status` first, because Harry may have work staged.
+  - Agent shells have no git identity. Commit as Harry with `GIT_AUTHOR_*`/`GIT_COMMITTER_*` env vars, plus the `Co-Authored-By` trailer.
+  - Git needs delete permission on the folder (for its lock files). Ask for it, and delete nothing else.
 - ✅ **May write under `data/`.** Deletion from agent shells needs an explicit grant.
 
 ### Guardrails

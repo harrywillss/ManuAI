@@ -30,7 +30,7 @@ In total there are about 271k FLAC clips at 32 kHz (43 GB).
 
 ```bash
 conda activate ManuAI
-pip install -r requirements.txt            # if setting up a fresh env
+pip install -r requirements.txt && pip install -e .   # fresh env: pinned deps + the manuai package
 
 python -m manuai.build_index               # archive metadata → data/index.csv + grouped split
 python -m manuai.preprocess                # → data/features/ (float16 cache, ~34 GB)
@@ -41,7 +41,7 @@ python -m manuai.infer --run models/finetuned/ast-v2-1 my_recording.wav
 python -m manuai.report --run models/finetuned/ast-v2-1   # → REPORT.md
 ```
 
-**Notebooks:** `01_data.ipynb` covers the data, split, spectrograms and audio, and builds the caches. `02_train.ipynb` trains and plots runs. `03_evaluate.ipynb` shows the report, confusion matrix and mistakes (with audio playback) and lets you try any audio file. They drive the same package, and their heavy cells are behind flags.
+**Notebooks** (in `notebooks/`): `01_data.ipynb` covers the data, split, spectrograms and audio, and builds the caches. `02_train.ipynb` trains and plots runs. `03_evaluate.ipynb` shows the report, confusion matrix and mistakes (with audio playback) and lets you try any audio file. They drive the same package, and their heavy cells are behind flags.
 
 `ManuAI.config` sets `data_directory` (default `data`, relative to the repo). Smoke-test a change on a small balanced subset first:
 
@@ -77,13 +77,54 @@ Base checkpoints are loaded from `models/base/{mit-ast,google-vit}`, so training
 - DataLoader workers work, because all collate code lives in the package.
 - The full feature cache takes about 34 GB of disk.
 
+## Repository layout
+
+```
+ManuAI/
+├── manuai/              # the pipeline package (features, labels, split, data, models, train, eval, inference)
+├── notebooks/           # 01_data · 02_train · 03_evaluate  (interactive front end over manuai/)
+│   └── legacy/          # first v2 attempt (Mar 2026)
+├── scripts/             # agent_runner.ipynb + agent_job.sh (detached runs), fetch_base_models.py
+├── tests/               # invariant tests (pytest)
+├── legacy/              # v1 capstone code and results, weights-poster script
+├── docs/                # working notes, ready-to-enable CI workflow (docs/ci/)
+├── types.yaml           # the class list
+├── ManuAI.config        # data_directory
+└── requirements.txt · pyproject.toml · pytest.ini · AGENTS.md
+```
+
+Kept locally and never committed (see `.gitignore`):
+- `archive/`: the dataset
+- `data/`: index, feature caches, logs
+- `models/base/`: pretrained checkpoints
+- `models/finetuned/`: runs
+- `saved_models/`, `reports/` and `art/`
+
+### Pretrained base models
+
+Base checkpoints live in `models/base/<name>/` and are loaded from there, so training works offline. To add a new one (for example to trial Bird-MAE or CED):
+
+```bash
+python scripts/fetch_base_models.py --list               # registry + what's already downloaded
+python scripts/fetch_base_models.py bird-mae-base ced-base
+```
+
+Each download records its exact Hugging Face revision in `models/base/<name>/SOURCE.json`.
+
+## Branches and tags
+
+- **`main`**: the project, with full history back to the capstone.
+- **`v1-capstone`** (tag): the repo exactly as submitted for AIML339 in Oct 2025.
+- Work happens on short-lived feature branches merged into `main` by pull request.
+- **CI (optional):** to have GitHub run `pytest` on every push and PR, copy [`docs/ci/tests.yml`](docs/ci/tests.yml) to `.github/workflows/tests.yml` and commit it.
+
 ## Capstone (v1) — frozen reference
 
 ManūAI started as Harry Wills's AIML339 capstone at Victoria University of Wellington (2025, supervised by Prof. W. Bastiaan Kleijn). v1 fine-tuned ViT on librosa log-mel images of 4 s segments. Its headline result was **72.6 % accuracy, macro-F1 ≈ 0.73, AUC 0.97** on 20 species.
 
-That split was made per segment, so segments from the same recording appeared in both training and test. The v1 figure is therefore optimistic and **not comparable** with v2's grouped split. The v1 code (`download_data.py`, `preprocess_data.py`, `inference.py`, `bird_types.yaml`, the HEAD version of `finetune.ipynb`) and the `saved_models/` deliverables are kept unchanged.
+That split was made per segment, so segments from the same recording appeared in both training and test. The v1 figure is therefore optimistic and **not comparable** with v2's grouped split. The v1 code and results are kept unchanged in [`legacy/v1/`](legacy/v1/) (see its README), the git tag `v1-capstone` marks the repo as submitted, and the `saved_models/` deliverables stay on disk.
 
-The v2 notebooks (`data_download.ipynb`, `preprocess_data.ipynb`, `finetune.ipynb`, `ast_finetune.ipynb`) were the first v2 attempt (Mar 2026). They are kept as legacy. The numbered notebooks plus the `manuai/` package replace them.
+The first v2 attempt (Mar 2026) is in `notebooks/legacy/`. The numbered notebooks plus the `manuai/` package replace it.
 
 ## Acknowledgments
 
