@@ -1,26 +1,48 @@
-downloads/
+# ── ManūAI .gitignore ─────────────────────────────────────────────
+# Data, models and large artefacts live locally and are never committed:
+#   archive/       Kaggle NZ bird sound dataset (43 GB, read-only)
+#   data/          index, feature caches, logs, backups
+#   models/        models/base (HF checkpoints) + models/finetuned (runs)
+#   saved_models/  v1 capstone deliverables
+#   reports/       submitted coursework (LaTeX/PDF)
+#   art/           weights-poster side project
+archive/
+data/
+models/
+saved_models/
 reports/
+art/
+spectrograms/
+*.zip
+
+# Old pipeline output folders (v1 / Mar 2026)
+downloads/
 training_data/
 segments/
-spectrograms/
+inference_outputs/
 vit-base-manuai/
 manuai_lora_adapters/
-manuai_checkpoints/ 
-art/
-.vscode/
-__pycache__/
-archive/
-show_weights.py                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-safetensors_to_nums.py
-notes.txt
-.env
-.DS_Store
-manuai-lora-10.zip
-inference_outputs/
-manuai_models.zip
-saved_models/
-new-2000-manuai.zip
-for_final.md
+manuai_checkpoints/
 ast-base-manuai/
 ast-manuai-lora-adapters/
 ast-manuai-checkpoints/
+
+# Secrets and local tooling
+.env
+.claude/
+.vscode/
+.idea/
+
+# Python / Jupyter / OS clutter
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+build/
+dist/
+.DS_Store
+
+# Personal scratch
+notes.txt
+safetensors_to_nums.py
